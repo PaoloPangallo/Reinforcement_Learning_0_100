@@ -1,8 +1,145 @@
 {% extends "base.html" %}
+
 {% block content %}
-<section class="intro">
-  <h2>Benvenuto nel Reinforcement Learning Lab</h2>
-  <p>Esplora gli algoritmi di Reinforcement Learning con esperimenti interattivi.</p>
-  <a class="btn" href="{{ url_for('taxi_v3.taxi_v3_viewer') }}">🚖 Vai al Taxi-v3</a>
+
+<!-- HERO SECTION -->
+<section class="hero">
+    <div class="hero-container">
+        <div class="hero-content">
+            <h1 class="hero-title">
+                Esplora il <span class="gradient-text">Reinforcement Learning</span>
+            </h1>
+            <p class="hero-subtitle">
+                Dai algoritmi classici alle moderne strategie RL. Sperimenta in tempo reale con interfacce interattive professionali.
+            </p>
+            <div class="hero-buttons">
+                <a href="#projects" class="btn btn-primary">Scopri i Progetti</a>
+                <a href="#" class="btn btn-secondary">Documentazione</a>
+            </div>
+        </div>
+        <div class="hero-graphic">
+            <div class="floating-cube"></div>
+            <div class="floating-sphere"></div>
+            <div class="floating-square"></div>
+        </div>
+    </div>
 </section>
+
+<!-- INTRO SECTION -->
+<section class="intro-section">
+    <div class="container">
+        <h2>Cosa è RL Lab?</h2>
+        <p class="intro-description">
+            RL Lab è una piattaforma interattiva per visualizzare e comprendere algoritmi di Reinforcement Learning.
+            Ogni esperimento è progettato per rendere trasparente il processo decisionale dell'agente AI.
+        </p>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Visualizzazioni Avanzate</h3>
+                <p>Grafi interattivi, heatmap e animazioni 3D per comprendere il comportamento della policy.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">⚙️</div>
+                <h3>Algoritmi Classici</h3>
+                <p>Q-Learning, Policy Gradient, Actor-Critic e molti altri implementati da zero.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🎮</div>
+                <h3>Esperimenti Interattivi</h3>
+                <p>Modifica parametri in tempo reale e osserva come cambiano i risultati.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📈</div>
+                <h3>Tracking Dettagliato</h3>
+                <p>Monitora rewards, convergenza e metriche di performance durante il training.</p>
+            </div>
+        </div>
+    </section>
+
+<section class="projects-section" id="projects">
+    <div class="container">
+        <h2>Progetti Disponibili</h2>
+        <p class="section-subtitle">Seleziona un esperimento per esplorare l’apprendimento per rinforzo</p>
+
+        <div class="projects-grid">
+
+            <!-- Taxi-v3 -->
+            <div class="project-card">
+                <div class="project-header">
+                    <span class="project-icon">🚖</span>
+                    <span class="project-status">Completato</span>
+                </div>
+                <h3>Taxi-v3</h3>
+                <p class="project-description">
+                    Un agente impara a guidare un taxi in una griglia 5x5.
+                    Deve raccogliere un passeggero e portarlo a destinazione nel minor numero di mosse.
+                </p>
+                <div class="project-specs">
+                    <span class="spec">States: 500</span>
+                    <span class="spec">Actions: 6</span>
+                    <span class="spec">Algorithm: Q-Learning</span>
+                </div>
+                <a href="{{ url_for('taxi_v3.taxi_v3_viewer') }}" class="btn btn-project">Visualizza →</a>
+            </div>
+
+            <!-- CliffWalking-v0 -->
+            <div class="project-card">
+                <div class="project-header">
+                    <span class="project-icon">⛰️</span>
+                    <span class="project-status active">Nuovo</span>
+                </div>
+                <h3>CliffWalking-v0</h3>
+                <p class="project-description">
+                    Un agente deve raggiungere la fine di una scogliera evitando di cadere.
+                    Confronta Q-Learning, SARSA e varianti per capire le differenze tra politiche on e off-policy.
+                </p>
+                <div class="project-specs">
+                    <span class="spec">States: 48</span>
+                    <span class="spec">Actions: 4</span>
+                    <span class="spec">Algoritmi: Q-Learning, SARSA, Expected SARSA, SARSA(λ)</span>
+                </div>
+                <div class="project-buttons">
+                    <a href="{{ url_for('cliff.index') }}" class="btn btn-project">Visualizza Policy →</a>
+                    <a href="{{ url_for('cliff.comparison') }}" class="btn btn-secondary small">Confronta Algoritmi</a>
+                </div>
+            </div>
+
+            <!-- Placeholder per terzo progetto -->
+            <div class="project-card coming-soon">
+                <div class="project-header">
+                    <span class="project-icon">🐍</span>
+                    <span class="project-status">Prossimamente</span>
+                </div>
+                <h3>Snake Game</h3>
+                <p class="project-description">
+                    Insegna a un agente a giocare a Snake usando Deep Q-Network (DQN).
+                    Osserva come impara strategie sempre più sofisticate.
+                </p>
+                <div class="project-specs">
+                    <span class="spec">States: Immagini</span>
+                    <span class="spec">Actions: 4</span>
+                    <span class="spec">Algorithm: DQN</span>
+                </div>
+                <button class="btn btn-project disabled">Disponibile presto</button>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+
+<!-- CTA SECTION -->
+<section class="cta-section">
+    <div class="container">
+        <h2>Pronto a esplorare il Reinforcement Learning?</h2>
+        <p>Inizia con Taxi-v3 e scopri come gli agenti RL imparano a prendere decisioni ottimali.</p>
+        <a href="{{ url_for('taxi_v3.taxi_v3_viewer') }}" class="btn btn-primary btn-large">Inizia Ora →</a>
+    </div>
+</section>
+
 {% endblock %}

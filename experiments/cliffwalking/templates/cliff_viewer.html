@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CliffWalking - Visualizzatore</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 0.5rem;
+      font-size: 2.5em;
+    }
+
+    .subtitle {
+      color: #666;
+      font-size: 1.1em;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+      padding: 1.5rem;
+      background: #f8f9fa;
+      border-radius: 8px;
+      align-items: flex-end;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    label {
+      font-weight: 600;
+      color: #333;
+      font-size: 0.95em;
+    }
+
+    select, input {
+      padding: 0.75rem;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      font-size: 1em;
+      transition: all 0.3s;
+    }
+
+    select:focus, input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    button {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 6px;
+      font-size: 1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: #667eea;
+      color: white;
+    }
+
+    button:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .viewer-grid {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .grid-wrapper {
+      display: flex;
+      justify-content: center;
+      background: #f0f0f0;
+      padding: 1.5rem;
+      border-radius: 8px;
+    }
+
+    .grid {
+      display: inline-grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 4px;
+      padding: 1rem;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .cell {
+      width: 55px;
+      height: 55px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 0.8em;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      color: white;
+      background: linear-gradient(135deg, #e0e0e0 0%, #d0d0d0 100%);
+      border: 2px solid #ccc;
+    }
+
+    .cell.start {
+      background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+      border-color: #2ecc71;
+    }
+
+    .cell.goal {
+      background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+      border-color: #f39c12;
+      font-size: 1.2em;
+    }
+
+    .cell.cliff {
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+      border-color: #c92a2a;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .cell.visited {
+      background: rgba(102, 126, 234, 0.2);
+      border-color: #667eea;
+    }
+
+    .cell.current {
+      background: linear-gradient(135deg, #667eea 0%, #5568d3 100%);
+      border-color: #667eea;
+      transform: scale(1.15);
+      box-shadow: 0 0 20px rgba(102, 126, 234, 0.8);
+      z-index: 10;
+    }
+
+    .agent {
+      position: absolute;
+      width: 45px;
+      height: 45px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #ffd700, #ffb700);
+      box-shadow: 0 0 15px rgba(255, 215, 0, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5em;
+      animation: pulse 1s infinite;
+      z-index: 20;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.15); }
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .info-box {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+      animation: slideIn 0.5s ease-out;
+    }
+
+    .info-box h3 {
+      margin-bottom: 1rem;
+      font-size: 1.2em;
+    }
+
+    .info-box p {
+      margin-bottom: 0.75rem;
+      font-size: 0.95em;
+      padding: 0.5rem;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+
+    .info-box span {
+      font-weight: bold;
+      color: #ffd700;
+    }
+
+    .timeline-wrapper {
+      margin-bottom: 2rem;
+      padding: 1rem;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+
+    .timeline-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+      font-size: 0.9em;
+      color: #666;
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 8px;
+      border-radius: 5px;
+      background: #ddd;
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #667eea;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      transition: all 0.2s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #667eea;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      padding-top: 1rem;
+      border-top: 2px solid #eee;
+    }
+
+    .stat-box {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 1rem;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-label {
+      font-size: 0.85em;
+      opacity: 0.9;
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-value {
+      font-size: 1.6em;
+      font-weight: bold;
+    }
+
+    .action-display {
+      font-size: 2em;
+      text-align: center;
+      margin-top: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
+      .viewer-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .cell {
+        width: 45px;
+        height: 45px;
+        font-size: 0.7em;
+      }
+
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🧗 CliffWalking</h1>
+      <p class="subtitle">Visualizzatore Interattivo - Algoritmi RL</p>
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <label for="algo-select">Algoritmo:</label>
+        <select id="algo-select">
+  <option value="qlearning">Q-Learning</option>
+  <option value="sarsa">SARSA</option>
+  <option value="expected_sarsa">Expected SARSA</option>
+  <option value="sarsa_lambda">SARSA(λ)</option>
+</select>
+
+      </div>
+
+      <div class="control-group">
+        <label for="episode-select">Episodio:</label>
+        <select id="episode-select">
+          <option value="">-- Carica episodio --</option>
+        </select>
+      </div>
+
+      <button id="play-btn">▶️ Play</button>
+      <button id="reset-btn">🔄 Reset</button>
+    </div>
+
+    <div class="timeline-wrapper">
+      <div class="timeline-label">
+        <span>Step: <strong id="step-display">0</strong></span>
+        <span id="total-steps">Totale: 0</span>
+      </div>
+      <input type="range" id="timeline" min="0" max="0" value="0">
+    </div>
+
+    <div class="viewer-grid">
+      <div class="grid-wrapper">
+        <div id="grid-container" class="grid"></div>
+      </div>
+
+      <div id="info-box" class="info-box">
+        <h3>📊 Info</h3>
+        <p><strong>Algo:</strong> <span id="info-algo">—</span></p>
+        <p><strong>Episodio:</strong> <span id="info-episode">—</span></p>
+        <p><strong>Step:</strong> <span id="info-step">0</span>/<span id="info-total">0</span></p>
+        <p><strong>Reward Cumul.:</strong> <span id="info-reward">0.00</span></p>
+        <p><strong>Azione:</strong></p>
+        <div class="action-display" id="action-display">—</div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat-box">
+        <div class="stat-label">Episodi disponibili</div>
+        <div class="stat-value" id="stat-episodes">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Lunghezza traccia</div>
+        <div class="stat-value" id="stat-length">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Reward finale</div>
+        <div class="stat-value" id="stat-final-reward">0.00</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+/* ------------------------
+   CONFIG BASE
+------------------------ */
+const GRID_ROWS = 4;
+const GRID_COLS = 12;
+const GOAL_STATE = 47;
+const CLIFF_STATES = new Set();
+for (let c = 0; c < GRID_COLS - 1; c++)
+  CLIFF_STATES.add((GRID_ROWS - 1) * GRID_COLS + c);
+
+let currentTrajectory = [];
+let currentStep = 0;
+let isPlaying = false;
+let visitedStates = new Set();
+
+const basePath = "/cliff";
+console.log("🧭 basePath:", window.location.pathname, "=>", basePath);
+
+
+/* ------------------------
+   ELEMENTI DOM
+------------------------ */
+const elements = {
+  algoSelect: document.getElementById("algo-select"),
+  epSelect: document.getElementById("episode-select"),
+  playBtn: document.getElementById("play-btn"),
+  resetBtn: document.getElementById("reset-btn"),
+  timeline: document.getElementById("timeline"),
+  gridContainer: document.getElementById("grid-container"),
+  stepDisplay: document.getElementById("step-display"),
+  totalSteps: document.getElementById("total-steps"),
+  infoAlgo: document.getElementById("info-algo"),
+  infoEpisode: document.getElementById("info-episode"),
+  infoStep: document.getElementById("info-step"),
+  infoTotal: document.getElementById("info-total"),
+  infoReward: document.getElementById("info-reward"),
+  actionDisplay: document.getElementById("action-display"),
+  statEpisodes: document.getElementById("stat-episodes"),
+  statLength: document.getElementById("stat-length"),
+  statFinalReward: document.getElementById("stat-final-reward"),
+};
+
+const ACTIONS = ["↑", "→", "↓", "←"];
+
+/* ------------------------
+   FUNZIONI BASE
+------------------------ */
+function coordsToState(r, c) { return r * GRID_COLS + c; }
+
+function renderGrid(highlightState = null) {
+  elements.gridContainer.innerHTML = "";
+  for (let r = 0; r < GRID_ROWS; r++) {
+    for (let c = 0; c < GRID_COLS; c++) {
+      const state = coordsToState(r, c);
+      const cell = document.createElement("div");
+      cell.classList.add("cell");
+
+      if (state === 0) { cell.classList.add("start"); cell.textContent = "S"; }
+      else if (state === GOAL_STATE) { cell.classList.add("goal"); cell.textContent = "🎯"; }
+      else if (CLIFF_STATES.has(state)) { cell.classList.add("cliff"); cell.textContent = "⚠️"; }
+
+      if (state === highlightState) {
+        cell.classList.add("current");
+        const agent = document.createElement("div");
+        agent.classList.add("agent");
+        agent.textContent = "🤖";
+        cell.appendChild(agent);
+      }
+      elements.gridContainer.appendChild(cell);
+    }
+  }
+}
+
+
+
+/* ------------------------
+   CARICAMENTO EPISODI
+------------------------ */
+async function loadEpisodes(algo) {
+  try {
+    console.log("🌐 Carico episodi per:", algo);
+    const res = await fetch(`${basePath}/api/results`);
+    console.log("📡 Chiamata API fatta:", `${basePath}/api/results`);
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    console.log("📊 Risposta /api/results:", data);
+
+    const map = {
+      qlearning: "qlearning",
+      sarsa: "sarsa",
+      expected_sarsa: "expected_sarsa",
+      sarsa_lambda: "sarsa_lambda",
+    };
+
+    const raw = data.available_snapshots?.[map[algo]];
+    console.log("🧱 raw snapshots per", algo, ":", raw);
+
+    if (!raw || raw.length === 0) {
+      console.warn("⚠️ Nessun episodio trovato per", algo);
+      elements.epSelect.innerHTML = `<option value="">(nessun episodio)</option>`;
+      return;
+    }
+
+    const snaps = [...new Set(raw)];
+    console.log("📦 Episodi unici:", snaps);
+
+    elements.epSelect.innerHTML = snaps
+      .map(ep => `<option value="${ep}">${ep}</option>`)
+      .join("");
+
+    elements.statEpisodes.textContent = snaps.length;
+
+    // carica automaticamente il primo episodio
+    if (snaps.length > 0) {
+      elements.epSelect.value = snaps[0];
+      console.log("⚙️ Carico automaticamente episodio:", snaps[0]);
+      await loadTrajectory(algo, snaps[0]);
+    }
+  } catch (err) {
+    console.error("❌ Errore loadEpisodes:", err);
+  }
+}
+
+
+/* ------------------------
+   CARICAMENTO TRAIETTORIA
+------------------------ */
+async function loadTrajectory(algo, ep) {
+  try {
+    const url = `${basePath}/api/trajectory/${algo}/${ep}`;
+    console.log("🚀 Chiamata:", url);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    currentTrajectory = await res.json();
+    console.log("📦 Traiettoria:", currentTrajectory.length, "step");
+    currentStep = 0;
+    elements.timeline.max = currentTrajectory.length;
+    elements.infoTotal.textContent = currentTrajectory.length;
+    renderFrame();
+  } catch (err) {
+    console.error("❌ Errore caricamento traiettoria:", err);
+  }
+}
+
+/* ------------------------
+   UPDATE FRAME
+------------------------ */
+function renderFrame() {
+  if (currentTrajectory.length === 0) { renderGrid(); return; }
+  const step = Math.min(currentStep, currentTrajectory.length - 1);
+  const state = currentTrajectory[step].state;
+  renderGrid(state);
+  elements.stepDisplay.textContent = step;
+  elements.infoStep.textContent = step;
+}
+
+/* ------------------------
+   PLAY AUTOMATICO
+------------------------ */
+async function autoPlay() {
+  if (isPlaying || currentTrajectory.length === 0) return;
+  console.log("▶️ Inizio autoplay con", currentTrajectory.length, "step");
+  isPlaying = true;
+  elements.playBtn.textContent = "⏸️ Pausa";
+
+  for (let i = 0; i < currentTrajectory.length && isPlaying; i++) {
+    currentStep = i;
+    renderFrame();
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  isPlaying = false;
+  elements.playBtn.textContent = "▶️ Play";
+}
+
+/* ------------------------
+   EVENT LISTENERS
+------------------------ */
+elements.playBtn.addEventListener("click", () => {
+  console.log("🟢 Play premuto, traj len =", currentTrajectory.length);
+  if (currentTrajectory.length === 0) return;
+  if (isPlaying) { isPlaying = false; elements.playBtn.textContent = "▶️ Play"; }
+  else { autoPlay(); }
+});
+
+elements.resetBtn.addEventListener("click", () => {
+  console.log("🔄 Reset");
+  currentStep = 0; isPlaying = false;
+  renderFrame();
+});
+
+elements.timeline.addEventListener("input", e => {
+  currentStep = parseInt(e.target.value);
+  renderFrame();
+});
+
+elements.algoSelect.addEventListener("change", () => {
+  const algo = elements.algoSelect.value;
+  loadEpisodes(algo);
+});
+
+elements.epSelect.addEventListener("change", () => {
+  const algo = elements.algoSelect.value;
+  const ep = elements.epSelect.value;
+  if (ep) loadTrajectory(algo, ep);
+});
+
+/* ------------------------
+   INIT
+------------------------ */
+renderGrid();
+loadEpisodes("qlearning");
+console.log("🔥 Init completato, listeners pronti.");
+elements.algoSelect.addEventListener("change", e => {
+  console.log("📥 Cambio algoritmo →", e.target.value);
+});
+elements.epSelect.addEventListener("change", e => {
+  console.log("📥 Cambio episodio →", e.target.value);
+});
+
+</script>
+
+</body>
+</html>

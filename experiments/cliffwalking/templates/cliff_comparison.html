@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="comparison-section">
+  <div class="container">
+    <h1 class="page-title">Confronto Algoritmi – CliffWalking-v0</h1>
+    <p class="page-subtitle">
+      Analizza prestazioni e tempi di addestramento per Q-Learning, SARSA ed altre varianti.
+    </p>
+
+    <!-- Chart 1: Reward -->
+    <div class="chart-container">
+      <h3>Reward Medi (ultimi 100 episodi)</h3>
+      <canvas id="rewardChart"></canvas>
+    </div>
+
+    <!-- Chart 2: Tempo -->
+    <div class="chart-container">
+      <h3>Tempo di Training (secondi)</h3>
+      <canvas id="timeChart"></canvas>
+    </div>
+  </div>
+</section>
+
+<!-- Libreria Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Collegamento JS del blueprint -->
+<script src="{{ url_for('cliff.static', filename='js/cliff_comparison.js') }}"></script>
+
+{% endblock %}

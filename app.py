@@ -1,5 +1,7 @@
 import os
 from flask import Flask, render_template
+
+from experiments.cliffwalking.routes import cliff_bp
 from experiments.taxi_v3.routes import taxi_v3_bp
 
 # Percorso assoluto del progetto (sempre ReinforcementLearning/)
@@ -25,6 +27,7 @@ def create_app():
         return render_template("index.html", title="RL Lab")
 
     app.register_blueprint(taxi_v3_bp, url_prefix="/taxi_v3")
+    app.register_blueprint(cliff_bp, url_prefix="/cliff")
     return app
 
 if __name__ == "__main__":
