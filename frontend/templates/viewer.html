@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div id="viewer-container">
+  <canvas id="scene"></canvas>
+  <div id="info-panel">
+    <h3>Taxi-v3 Policy Viewer</h3>
+    <p>Visualizza la policy appresa come griglia 3D interattiva.</p>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/viewer.js') }}"></script>
+{% endblock %}

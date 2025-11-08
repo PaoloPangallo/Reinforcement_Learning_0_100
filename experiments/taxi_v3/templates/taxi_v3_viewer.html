@@ -1,0 +1,546 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taxi-v3 RL Viewer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: #94a3b8;
+            font-size: 1.1em;
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid rgba(51, 65, 85, 0.5);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+
+        .meta-item {
+            text-align: center;
+            padding: 15px;
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 8px;
+            border-left: 3px solid #3b82f6;
+        }
+
+        .meta-label {
+            color: #94a3b8;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .meta-value {
+            font-size: 1.6em;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(51, 65, 85, 0.5);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            overflow: hidden;
+        }
+
+        .card-title {
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        #gridCanvas {
+            width: 100%;
+            height: 450px;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(20, 30, 50, 0.9) 100%);
+            border-radius: 8px;
+            cursor: crosshair;
+        }
+
+        #rewardChartContainer {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+
+        #rewardChart {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .trajectory-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            border: none;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95em;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(59, 130, 246, 0.5);
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .info-box {
+            background: rgba(59, 130, 246, 0.1);
+            border-left: 3px solid #3b82f6;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 0.95em;
+            color: #cbd5e1;
+        }
+
+        .action-labels {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 15px;
+            font-size: 0.85em;
+        }
+
+        .action-label {
+            padding: 8px;
+            background: rgba(51, 65, 85, 0.5);
+            border-radius: 6px;
+            text-align: center;
+            border-left: 3px solid #8b5cf6;
+        }
+
+        .legend {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+            padding: 12px;
+            background: rgba(51, 65, 85, 0.3);
+            border-radius: 6px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9em;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #94a3b8;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto 15px;
+            border: 3px solid rgba(59, 130, 246, 0.3);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚖 Taxi-v3 Reinforcement Learning</h1>
+            <p class="subtitle">Policy Visualization & Performance Analysis</p>
+        </header>
+
+        <div class="meta-grid" id="metaGrid">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Loading data...</p>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="card">
+                <div class="card-title">📊 Policy Grid</div>
+                <canvas id="gridCanvas"></canvas>
+                <div class="action-labels">
+                    <div class="action-label">0: South ↓</div>
+                    <div class="action-label">1: North ↑</div>
+                    <div class="action-label">2: East →</div>
+                    <div class="action-label">3: West ←</div>
+                    <div class="action-label">4: Pickup 🔼</div>
+                    <div class="action-label">5: Dropoff 🔽</div>
+                </div>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #3b82f6;"></div>
+                        <span>High Value</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #f97316;"></div>
+                        <span>Low Value</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">📈 Training Rewards</div>
+                <div id="rewardChartContainer">
+                    <canvas id="rewardChart"></canvas>
+                </div>
+                <div id="rewardStats" class="info-box"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">🎬 Trajectory Playback</div>
+            <canvas id="trajectoryCanvas" width="800" height="300" style="background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(20, 30, 50, 0.9) 100%); border-radius: 8px; display: block; margin: 0 auto;"></canvas>
+            <div class="trajectory-controls">
+                <button onclick="playTrajectory()">▶ Play</button>
+                <button onclick="pauseTrajectory()">⏸ Pause</button>
+                <button onclick="resetTrajectory()">🔄 Reset</button>
+                <button onclick="nextStep()">→ Next</button>
+                <button onclick="prevStep()">← Prev</button>
+            </div>
+            <div id="trajectoryInfo" class="info-box"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = "/taxi_v3/api";
+        let policyData = null;
+        let rewardsData = null;
+        let trajectoryData = null;
+        let playing = false;
+        let currentStep = 0;
+        let chartInstance = null;
+
+        async function loadData() {
+            try {
+                const [policyRes, rewardsRes, trajectoryRes] = await Promise.all([
+                    fetch(`${API_BASE}/policy`),
+                    fetch(`${API_BASE}/rewards`),
+                    fetch(`${API_BASE}/trajectory`)
+                ]);
+
+                const policyJson = await policyRes.json();
+                const rewardsJson = await rewardsRes.json();
+                const trajectoryJson = await trajectoryRes.json();
+
+                policyData = policyJson.policy;
+                rewardsData = rewardsJson.rewards;
+                trajectoryData = trajectoryJson.trajectory;
+
+                const metadata = policyJson.metadata;
+                renderMetadata(metadata, rewardsJson.avg100);
+                renderPolicyGrid();
+                renderRewardChart();
+                updateTrajectoryInfo();
+            } catch (error) {
+                console.error("Error loading data:", error);
+                document.getElementById("metaGrid").innerHTML = `<div class="info-box" style="grid-column: 1/-1;">Error loading data: ${error.message}</div>`;
+            }
+        }
+
+        function renderMetadata(metadata, avg100) {
+            const html = `
+                <div class="meta-item">
+                    <div class="meta-label">Environment</div>
+                    <div class="meta-value">${metadata.env}</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">States</div>
+                    <div class="meta-value">${metadata.states}</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Actions</div>
+                    <div class="meta-value">${metadata.actions}</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Grid Cells</div>
+                    <div class="meta-value">${metadata.cells}</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Avg (Last 100)</div>
+                    <div class="meta-value">${avg100.toFixed(2)}</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Episodes</div>
+                    <div class="meta-value">${rewardsData.length}</div>
+                </div>
+            `;
+            document.getElementById("metaGrid").innerHTML = html;
+        }
+
+        function renderPolicyGrid() {
+            const canvas = document.getElementById("gridCanvas");
+            const ctx = canvas.getContext("2d");
+
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+
+            const cellSize = Math.min(canvas.width / 6, canvas.height / 6);
+            const startX = (canvas.width - cellSize * 5) / 2;
+            const startY = (canvas.height - cellSize * 5) / 2;
+
+            ctx.fillStyle = "rgba(15, 23, 42, 0.3)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            policyData.forEach(cell => {
+                const x = startX + cell.col * cellSize;
+                const y = startY + cell.row * cellSize;
+
+                const hue = Math.max(0, Math.min(120, (cell.value + 2) * 30));
+                ctx.fillStyle = `hsl(${hue}, 80%, 55%)`;
+                ctx.fillRect(x, y, cellSize - 2, cellSize - 2);
+
+                ctx.fillStyle = "white";
+                ctx.font = "bold 14px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(cell.action, x + cellSize / 2, y + cellSize / 2);
+
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x, y, cellSize - 2, cellSize - 2);
+            });
+        }
+
+        function renderRewardChart() {
+            if (chartInstance) chartInstance.destroy();
+
+            const ctx = document.getElementById("rewardChart").getContext("2d");
+
+            const windowSize = 20;
+            const smoothed = [];
+            for (let i = 0; i < rewardsData.length; i++) {
+                const start = Math.max(0, i - windowSize);
+                const end = i + 1;
+                const avg = rewardsData.slice(start, end).reduce((a, b) => a + b, 0) / (end - start);
+                smoothed.push(avg);
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: rewardsData.map((_, i) => i + 1),
+                    datasets: [
+                        {
+                            label: "Raw Rewards",
+                            data: rewardsData,
+                            borderColor: "rgba(156, 163, 175, 0.3)",
+                            backgroundColor: "rgba(156, 163, 175, 0.05)",
+                            borderWidth: 1,
+                            pointRadius: 0,
+                            tension: 0.1
+                        },
+                        {
+                            label: "Smoothed (MA20)",
+                            data: smoothed,
+                            borderColor: "#3b82f6",
+                            backgroundColor: "rgba(59, 130, 246, 0.1)",
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.3,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: "index", intersect: false },
+                    plugins: {
+                        legend: { labels: { color: "#cbd5e1" }, position: "top" },
+                        filler: { propagate: true }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: "#94a3b8" },
+                            grid: { color: "rgba(51, 65, 85, 0.2)" },
+                            title: { display: true, text: "Episodes", color: "#94a3b8" }
+                        },
+                        y: {
+                            ticks: { color: "#94a3b8" },
+                            grid: { color: "rgba(51, 65, 85, 0.2)" },
+                            title: { display: true, text: "Reward", color: "#94a3b8" }
+                        }
+                    }
+                }
+            });
+
+            const avg = rewardsData.reduce((a, b) => a + b, 0) / rewardsData.length;
+            const stats = `Max: ${Math.max(...rewardsData).toFixed(2)} | Min: ${Math.min(...rewardsData).toFixed(2)} | Avg: ${avg.toFixed(2)}`;
+            document.getElementById("rewardStats").textContent = stats;
+        }
+
+        function renderTrajectory() {
+            const canvas = document.getElementById("trajectoryCanvas");
+            const ctx = canvas.getContext("2d");
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (trajectoryData.length === 0) return;
+
+            const cellSize = Math.min(canvas.width / 6, canvas.height / 6);
+            const startX = (canvas.width - cellSize * 5) / 2;
+            const startY = (canvas.height - cellSize * 5) / 2;
+
+            ctx.fillStyle = "rgba(51, 65, 85, 0.2)";
+            for (let r = 0; r < 5; r++) {
+                for (let c = 0; c < 5; c++) {
+                    ctx.fillRect(startX + c * cellSize, startY + r * cellSize, cellSize - 1, cellSize - 1);
+                }
+            }
+
+            for (let i = 0; i < currentStep; i++) {
+                const step = trajectoryData[i];
+                const x = startX + step.col * cellSize + cellSize / 2;
+                const y = startY + step.row * cellSize + cellSize / 2;
+
+                ctx.fillStyle = `rgba(59, 130, 246, ${0.3 + (i / currentStep) * 0.5})`;
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (i > 0) {
+                    const prevStep = trajectoryData[i - 1];
+                    const px = startX + prevStep.col * cellSize + cellSize / 2;
+                    const py = startY + prevStep.row * cellSize + cellSize / 2;
+                    ctx.strokeStyle = `rgba(59, 130, 246, ${0.2 + (i / currentStep) * 0.5})`;
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(px, py);
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                }
+            }
+
+            const step = trajectoryData[currentStep];
+            const x = startX + step.col * cellSize + cellSize / 2;
+            const y = startY + step.row * cellSize + cellSize / 2;
+            ctx.fillStyle = "#fbbf24";
+            ctx.beginPath();
+            ctx.arc(x, y, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#f59e0b";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        function updateTrajectoryInfo() {
+            if (currentStep < trajectoryData.length) {
+                const step = trajectoryData[currentStep];
+                const actionNames = ["South ↓", "North ↑", "East →", "West ←", "Pickup 🔼", "Dropoff 🔽"];
+                document.getElementById("trajectoryInfo").innerHTML = `
+                    Step ${currentStep + 1}/${trajectoryData.length} | Position (${step.row}, ${step.col}) | Action: ${actionNames[step.action]} | Reward: ${step.reward}
+                `;
+            }
+            renderTrajectory();
+        }
+
+        function playTrajectory() {
+            playing = true;
+            const interval = setInterval(() => {
+                if (!playing || currentStep >= trajectoryData.length - 1) {
+                    clearInterval(interval);
+                    playing = false;
+                    return;
+                }
+                currentStep++;
+                updateTrajectoryInfo();
+            }, 300);
+        }
+
+        function pauseTrajectory() { playing = false; }
+        function resetTrajectory() { currentStep = 0; playing = false; updateTrajectoryInfo(); }
+        function nextStep() { if (currentStep < trajectoryData.length - 1) { currentStep++; updateTrajectoryInfo(); } }
+        function prevStep() { if (currentStep > 0) { currentStep--; updateTrajectoryInfo(); } }
+
+        loadData();
+    </script>
+</body>
+</html>

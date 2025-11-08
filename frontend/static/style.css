@@ -1,0 +1,12 @@
+body {
+  margin: 0;
+  background: #111;
+  color: white;
+  font-family: 'Segoe UI', sans-serif;
+  text-align: center;
+}
+#scene-container {
+  width: 100vw;
+  height: 90vh;
+  overflow: hidden;
+}
