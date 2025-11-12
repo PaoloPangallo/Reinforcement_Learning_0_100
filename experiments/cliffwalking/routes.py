@@ -2,8 +2,14 @@
 from flask import Blueprint, render_template, jsonify
 import os, json, numpy as np
 
-cliff_bp = Blueprint('cliff', __name__, template_folder='templates', static_folder='static')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+cliff_bp = Blueprint(
+    "cliff",
+    __name__,
+    template_folder=os.path.join(BASE_DIR, "templates"),
+    static_folder=os.path.join(BASE_DIR, "static")
+)
 
 # ------------------------------
 # Pagina principale viewer

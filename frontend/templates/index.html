@@ -29,10 +29,11 @@
 <section class="intro-section">
     <div class="container">
         <h2>Cosa è RL Lab?</h2>
-        <p class="intro-description">
-            RL Lab è una piattaforma interattiva per visualizzare e comprendere algoritmi di Reinforcement Learning.
-            Ogni esperimento è progettato per rendere trasparente il processo decisionale dell'agente AI.
-        </p>
+       <p class="intro-description">
+    RL Lab è una piattaforma interattiva per visualizzare e comprendere algoritmi di Reinforcement Learning.
+    Dalle versioni tabulari alle reti neurali profonde, ogni esperimento mostra passo dopo passo come l’agente impara.
+</p>
+
 
         <div class="features-grid">
             <div class="feature-card">
@@ -127,6 +128,29 @@
                 </div>
                 <button class="btn btn-project disabled">Disponibile presto</button>
             </div>
+
+
+            <div class="project-card">
+    <div class="project-header">
+        <span class="project-icon">🌕</span>
+        <span class="project-status active">Nuovo</span>
+    </div>
+    <h3>LunarLander-v3</h3>
+    <p class="project-description">
+        Osserva quattro agenti Deep RL (DQN, Double, Dueling, PER) imparare ad atterrare in sicurezza sulla Luna.
+        Analizza le differenze tra le architetture e segui la loro evoluzione con video e grafici interattivi.
+    </p>
+    <div class="project-specs">
+        <span class="spec">States: 8</span>
+        <span class="spec">Actions: 4</span>
+        <span class="spec">Algoritmi: DQN, Double, Dueling, PER</span>
+    </div>
+    <div class="project-buttons">
+        <a href="{{ url_for('lunarlander.lunarlander_viewer') }}" class="btn btn-project">Visualizza Evoluzione →</a>
+    </div>
+</div>
+
+
 
         </div>
     </div>

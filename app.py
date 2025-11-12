@@ -3,6 +3,7 @@ from flask import Flask, render_template
 
 from experiments.cliffwalking.routes import cliff_bp
 from experiments.taxi_v3.routes import taxi_v3_bp
+from experiments.lunarlander.routes import lunarlander_bp
 
 # Percorso assoluto del progetto (sempre ReinforcementLearning/)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -28,6 +29,7 @@ def create_app():
 
     app.register_blueprint(taxi_v3_bp, url_prefix="/taxi_v3")
     app.register_blueprint(cliff_bp, url_prefix="/cliff")
+    app.register_blueprint(lunarlander_bp, url_prefix="/lunarlander")
     return app
 
 if __name__ == "__main__":
