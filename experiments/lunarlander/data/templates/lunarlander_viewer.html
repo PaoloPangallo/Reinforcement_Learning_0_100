@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block content %}
+<main class="lander-main">
+  <!-- Header Section -->
+  <section class="lander-header">
+    <div class="header-content">
+      <h1 class="title">
+        <span class="rocket-icon">🚀</span>
+        LunarLander Evolution Lab
+      </h1>
+      <p class="subtitle">Osserva come quattro agenti di Deep Reinforcement Learning imparano progressivamente ad atterrare sulla Luna</p>
+    </div>
+  </section>
+
+  <!-- Main Container -->
+  <div class="lander-container">
+
+    <!-- Algorithm Selector -->
+    <section class="algo-selector-section">
+      <h2 class="section-title">Seleziona Algoritmo</h2>
+      <div class="algo-buttons" id="algoButtons"></div>
+    </section>
+
+    <!-- Video Viewer -->
+    <section class="video-section">
+      <div class="video-container">
+        <div class="video-wrapper">
+          <video
+            id="landerVideo"
+            class="lander-video"
+            width="720"
+            height="540"
+            controls
+            autoplay
+            loop
+            preload="auto"
+            aria-label="Video simulazione LunarLander">
+          </video>
+        </div>
+
+        <!-- Video Caption & Stats -->
+        <div class="video-info">
+          <div class="video-caption" id="caption">
+            ⏳ Carica un algoritmo per iniziare
+          </div>
+          <div class="stats-grid" id="statsPanel">
+            <div class="stat-item placeholder">
+              <span class="stat-label">Episodio</span>
+              <span class="stat-value">—</span>
+            </div>
+            <div class="stat-item placeholder">
+              <span class="stat-label">Reward</span>
+              <span class="stat-value">—</span>
+            </div>
+            <div class="stat-item placeholder">
+              <span class="stat-label">Status</span>
+              <span class="stat-value">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Episode Selector -->
+        <div class="episode-selector">
+          <label for="checkpointSelect" class="select-label">Scegli Episodio:</label>
+          <select id="checkpointSelect" class="episode-select" aria-label="Seleziona episodio">
+            <option>Caricamento...</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chart Section -->
+    <section class="chart-section">
+      <div class="chart-header">
+        <h2 class="section-title">📈 Progressione dei Reward</h2>
+        <div class="chart-stats" id="chartStats">
+          <div class="chart-stat">Max: <strong>—</strong></div>
+          <div class="chart-stat">Avg: <strong>—</strong></div>
+          <div class="chart-stat">Min: <strong>—</strong></div>
+        </div>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="rewardChart"></canvas>
+      </div>
+    </section>
+
+    <!-- Controls Section -->
+    <section class="controls-section">
+      <button
+        id="playAllBtn"
+        class="btn btn-primary"
+        aria-label="Riproduci evoluzione completa">
+        ▶️ Riproduci Evoluzione Completa
+      </button>
+    </section>
+  </div>
+
+  <!-- Loading Spinner -->
+  <div class="loading-spinner" id="loadingSpinner">
+    <div class="spinner-inner"></div>
+    <span class="spinner-text">Caricamento...</span>
+  </div>
+</main>
+
+<!-- Scripts -->
+<link rel="stylesheet" href="{{ url_for('lunarlander.static', filename='lunarlander.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@latest"></script>
+<script src="{{ url_for('lunarlander.static', filename='lunarlander_viewer.js') }}" defer></script>
+{% endblock %}

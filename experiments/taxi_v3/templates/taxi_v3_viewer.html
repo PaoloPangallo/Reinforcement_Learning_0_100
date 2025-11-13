@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-v3 RL Viewer</title>
+    <title>Taxi-v3 RL Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -14,483 +13,621 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            font-family: 'Segoe UI', Roboto, -apple-system, sans-serif;
+            background: #0f1419;
             color: #e2e8f0;
             min-height: 100vh;
-            padding: 20px;
+            padding: 16px;
         }
 
         .container {
-            max-width: 1600px;
+            max-width: 2000px;
             margin: 0 auto;
         }
 
         header {
-            margin-bottom: 30px;
-            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(51, 65, 85, 0.5);
         }
 
         h1 {
-            font-size: 2.5em;
-            margin-bottom: 8px;
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-size: 1.8em;
+            font-weight: 600;
+            color: #cbd5e1;
         }
 
-        .subtitle {
-            color: #94a3b8;
-            font-size: 1.1em;
-        }
-
-        .meta-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: rgba(15, 23, 42, 0.5);
-            border: 1px solid rgba(51, 65, 85, 0.5);
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-        }
-
-        .meta-item {
-            text-align: center;
-            padding: 15px;
-            background: rgba(30, 41, 59, 0.8);
-            border-radius: 8px;
-            border-left: 3px solid #3b82f6;
-        }
-
-        .meta-label {
-            color: #94a3b8;
+        .env-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            background: rgba(51, 65, 85, 0.4);
+            border: 1px solid rgba(96, 165, 250, 0.3);
+            border-radius: 6px;
             font-size: 0.9em;
-            margin-bottom: 5px;
+            color: #94a3b8;
         }
 
-        .meta-value {
-            font-size: 1.6em;
-            font-weight: bold;
-            color: #3b82f6;
+        .env-badge .value {
+            color: #60a5fa;
+            font-weight: 600;
         }
 
         .main-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 30px;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
         }
 
         .card {
-            background: rgba(30, 41, 59, 0.6);
-            border: 1px solid rgba(51, 65, 85, 0.5);
-            border-radius: 12px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-            overflow: hidden;
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(51, 65, 85, 0.6);
+            border-radius: 8px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
         }
 
         .card-title {
+            font-size: 0.95em;
+            font-weight: 600;
+            color: #cbd5e1;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #94a3b8;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .stat {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(51, 65, 85, 0.4);
+            border-radius: 6px;
+            padding: 12px;
+        }
+
+        .stat-label {
+            font-size: 0.8em;
+            color: #94a3b8;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .stat-value {
+            font-size: 1.6em;
+            font-weight: 700;
+            color: #60a5fa;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-detail {
+            font-size: 0.75em;
+            color: #64748b;
+            margin-top: 3px;
+        }
+
+        .chart-container {
+            flex: 1;
+            position: relative;
+            min-height: 300px;
+        }
+
+        .policy-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+            flex: 1;
+        }
+
+        .policy-cell {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.85em;
+            border: 1px solid rgba(51, 65, 85, 0.4);
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .policy-cell:hover {
+            border-color: rgba(96, 165, 250, 0.6);
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        .policy-action {
             font-size: 1.3em;
-            margin-bottom: 15px;
+            margin-bottom: 2px;
+        }
+
+        .policy-value {
+            font-size: 0.7em;
+            opacity: 0.85;
+        }
+
+        .heatmap {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 4px;
+            flex: 1;
+        }
+
+        .heatmap-cell {
+            aspect-ratio: 1;
+            border-radius: 4px;
+            border: 1px solid rgba(51, 65, 85, 0.3);
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-weight: 600;
-        }
-
-        #gridCanvas {
-            width: 100%;
-            height: 450px;
-            background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(20, 30, 50, 0.9) 100%);
-            border-radius: 8px;
-            cursor: crosshair;
-        }
-
-        #rewardChartContainer {
-            position: relative;
-            height: 400px;
-            width: 100%;
-        }
-
-        #rewardChart {
-            width: 100% !important;
-            height: 100% !important;
-        }
-
-        .trajectory-controls {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-            flex-wrap: wrap;
             justify-content: center;
+            font-size: 0.75em;
+            font-weight: 500;
+        }
+
+        .bottom-grid {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .trajectory-card {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .trajectory-canvas {
+            width: 100%;
+            height: 280px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(51, 65, 85, 0.4);
+            border-radius: 6px;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
         }
 
         button {
-            padding: 8px 16px;
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            border: none;
-            color: white;
+            padding: 8px 14px;
+            background: rgba(96, 165, 250, 0.2);
+            border: 1px solid rgba(96, 165, 250, 0.4);
+            color: #60a5fa;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 0.95em;
+            font-size: 0.9em;
             font-weight: 500;
-            transition: all 0.3s ease;
-            border: 1px solid rgba(59, 130, 246, 0.5);
+            transition: all 0.2s ease;
         }
 
         button:hover {
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
+            background: rgba(96, 165, 250, 0.3);
+            border-color: rgba(96, 165, 250, 0.6);
         }
 
         button:active {
-            transform: translateY(0);
+            transform: scale(0.98);
         }
 
-        .info-box {
-            background: rgba(59, 130, 246, 0.1);
-            border-left: 3px solid #3b82f6;
-            padding: 12px;
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .slider-label {
+            font-size: 0.85em;
+            color: #94a3b8;
+            min-width: 50px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 3px;
+            border-radius: 2px;
+            background: rgba(51, 65, 85, 0.6);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #60a5fa;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #60a5fa;
+            cursor: pointer;
+            border: none;
+        }
+
+        .step-info {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(51, 65, 85, 0.4);
             border-radius: 6px;
-            margin-top: 10px;
-            font-size: 0.95em;
+            padding: 12px;
+            font-size: 0.9em;
+            line-height: 1.5;
+            font-family: 'Courier New', monospace;
             color: #cbd5e1;
         }
 
-        .action-labels {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            margin-top: 15px;
-            font-size: 0.85em;
+        .step-info strong {
+            color: #60a5fa;
         }
 
-        .action-label {
-            padding: 8px;
-            background: rgba(51, 65, 85, 0.5);
+        .metrics-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .metric-item {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(51, 65, 85, 0.4);
             border-radius: 6px;
-            text-align: center;
-            border-left: 3px solid #8b5cf6;
+            padding: 12px;
+        }
+
+        .metric-item-label {
+            font-size: 0.8em;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 6px;
+        }
+
+        .metric-item-value {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #60a5fa;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .metric-item-sub {
+            font-size: 0.8em;
+            color: #64748b;
+            margin-top: 4px;
         }
 
         .legend {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: 1fr 1fr;
             gap: 10px;
-            margin-top: 15px;
-            padding: 12px;
-            background: rgba(51, 65, 85, 0.3);
-            border-radius: 6px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(51, 65, 85, 0.3);
+            font-size: 0.85em;
         }
 
         .legend-item {
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 0.9em;
         }
 
         .legend-color {
-            width: 16px;
-            height: 16px;
+            width: 14px;
+            height: 14px;
             border-radius: 3px;
         }
 
-        @media (max-width: 1200px) {
+        @media (max-width: 1600px) {
             .main-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .bottom-grid {
                 grid-template-columns: 1fr;
             }
         }
 
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #94a3b8;
-        }
-
-        .spinner {
-            width: 40px;
-            height: 40px;
-            margin: 0 auto 15px;
-            border: 3px solid rgba(59, 130, 246, 0.3);
-            border-top-color: #3b82f6;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        @media (max-width: 1000px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🚖 Taxi-v3 Reinforcement Learning</h1>
-            <p class="subtitle">Policy Visualization & Performance Analysis</p>
+            <h1>🚖 Taxi-v3 Q-Learning Analysis</h1>
+            <div>
+                <span class="env-badge">
+                    States: <span class="value" id="statesVal">500</span>
+                </span>
+                <span class="env-badge" style="margin-left: 12px;">
+                    Actions: <span class="value" id="actionsVal">6</span>
+                </span>
+                <span class="env-badge" style="margin-left: 12px;">
+                    Episodes: <span class="value" id="episodesVal">0</span>
+                </span>
+            </div>
         </header>
 
-        <div class="meta-grid" id="metaGrid">
-            <div class="loading">
-                <div class="spinner"></div>
-                <p>Loading data...</p>
-            </div>
-        </div>
-
         <div class="main-grid">
+            <!-- Training Convergence -->
             <div class="card">
-                <div class="card-title">📊 Policy Grid</div>
-                <canvas id="gridCanvas"></canvas>
-                <div class="action-labels">
-                    <div class="action-label">0: South ↓</div>
-                    <div class="action-label">1: North ↑</div>
-                    <div class="action-label">2: East →</div>
-                    <div class="action-label">3: West ←</div>
-                    <div class="action-label">4: Pickup 🔼</div>
-                    <div class="action-label">5: Dropoff 🔽</div>
+                <div class="card-title">Training Convergence</div>
+                <div class="chart-container">
+                    <canvas id="trainingChart"></canvas>
                 </div>
-                <div class="legend">
+            </div>
+
+            <!-- Reward Statistics -->
+            <div class="card">
+                <div class="card-title">Reward Statistics</div>
+                <div class="stats-grid">
+                    <div class="stat">
+                        <div class="stat-label">Peak</div>
+                        <div class="stat-value" id="statPeak">20</div>
+                        <div class="stat-detail">Max episode</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Worst</div>
+                        <div class="stat-value" id="statWorst">-875</div>
+                        <div class="stat-detail">Min episode</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Avg (All)</div>
+                        <div class="stat-value" id="statAvg">-4.5</div>
+                        <div class="stat-detail">Overall mean</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Avg (Last 100)</div>
+                        <div class="stat-value" id="statRecent">5.45</div>
+                        <div class="stat-detail">Recent perf.</div>
+                    </div>
+                </div>
+                <div class="legend" style="margin-top: 12px;">
                     <div class="legend-item">
                         <div class="legend-color" style="background: #3b82f6;"></div>
-                        <span>High Value</span>
+                        <span>Early phase</span>
                     </div>
                     <div class="legend-item">
-                        <div class="legend-color" style="background: #f97316;"></div>
-                        <span>Low Value</span>
+                        <div class="legend-color" style="background: #10b981;"></div>
+                        <span>Converged</span>
                     </div>
                 </div>
             </div>
 
+            <!-- Learned Policy (Q-Values Heatmap) -->
             <div class="card">
-                <div class="card-title">📈 Training Rewards</div>
-                <div id="rewardChartContainer">
-                    <canvas id="rewardChart"></canvas>
-                </div>
-                <div id="rewardStats" class="info-box"></div>
+                <div class="card-title">Policy Q-Values Heatmap</div>
+                <div class="heatmap" id="qvaluesHeatmap"></div>
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-title">🎬 Trajectory Playback</div>
-            <canvas id="trajectoryCanvas" width="800" height="300" style="background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(20, 30, 50, 0.9) 100%); border-radius: 8px; display: block; margin: 0 auto;"></canvas>
-            <div class="trajectory-controls">
-                <button onclick="playTrajectory()">▶ Play</button>
-                <button onclick="pauseTrajectory()">⏸ Pause</button>
-                <button onclick="resetTrajectory()">🔄 Reset</button>
-                <button onclick="nextStep()">→ Next</button>
-                <button onclick="prevStep()">← Prev</button>
+        <div class="bottom-grid">
+            <!-- Trajectory Visualization -->
+            <div class="card trajectory-card">
+                <div class="card-title">Trajectory Playback</div>
+                <canvas class="trajectory-canvas" id="trajectoryCanvas"></canvas>
+                <div class="controls">
+                    <button onclick="resetTraj()">⏮ Reset</button>
+                    <button onclick="prevStep()">⬅ Prev</button>
+                    <button onclick="togglePlay()" id="playBtn">▶ Play</button>
+                    <button onclick="nextStep()">➡ Next</button>
+                </div>
+                <div class="slider-container">
+                    <span class="slider-label">Speed:</span>
+                    <input type="range" id="speedSlider" min="100" max="1000" value="300" step="50">
+                </div>
+                <div class="step-info" id="stepInfo">
+                    <strong>Step 1/15</strong><br>
+                    Pos: (3, 4) | Action: West ← | Reward: -1
+                </div>
             </div>
-            <div id="trajectoryInfo" class="info-box"></div>
+
+            <!-- Policy Grid & Metrics -->
+            <div class="metrics-panel">
+                <div class="card" style="flex: 1;">
+                    <div class="card-title">Optimal Policy (Best Action per Cell)</div>
+                    <div class="policy-grid" id="policyGrid"></div>
+                </div>
+                <div class="card">
+                    <div class="metric-item">
+                        <div class="metric-item-label">Convergence Episode</div>
+                        <div class="metric-item-value" id="convEpisode">68</div>
+                        <div class="metric-item-sub">Where learning stabilized</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="metric-item">
+                        <div class="metric-item-label">Avg Episode Length</div>
+                        <div class="metric-item-value" id="avgLength">15</div>
+                        <div class="metric-item-sub">Trajectory steps</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        const API_BASE = "/taxi_v3/api";
-        let policyData = null;
-        let rewardsData = null;
-        let trajectoryData = null;
+        const data = {"metadata": {"env": "Taxi-v3", "states": 500, "actions": 6, "cells": 25}, "policy": [{"row": 0, "col": 0, "action": 5, "value": 1.125}, {"row": 0, "col": 1, "action": 5, "value": 0.9217}, {"row": 0, "col": 2, "action": 2, "value": -0.0141}, {"row": 0, "col": 3, "action": 2, "value": 0.5729}, {"row": 0, "col": 4, "action": 2, "value": 0.6255}, {"row": 1, "col": 0, "action": 5, "value": 1.4304}, {"row": 1, "col": 1, "action": 5, "value": 1.2539}, {"row": 1, "col": 2, "action": 2, "value": 1.0501}, {"row": 1, "col": 3, "action": 2, "value": 1.1923}, {"row": 1, "col": 4, "action": 2, "value": 0.821}, {"row": 2, "col": 0, "action": 5, "value": 1.8098}, {"row": 2, "col": 1, "action": 5, "value": 1.6643}, {"row": 2, "col": 2, "action": 2, "value": 1.6262}, {"row": 2, "col": 3, "action": 2, "value": 1.695}, {"row": 2, "col": 4, "action": 2, "value": 1.2151}, {"row": 3, "col": 0, "action": 0, "value": 1.4457}, {"row": 3, "col": 1, "action": 0, "value": 0.5812}, {"row": 3, "col": 2, "action": 2, "value": 0.4879}, {"row": 3, "col": 3, "action": 2, "value": 1.3387}, {"row": 3, "col": 4, "action": 2, "value": 0.7475}, {"row": 4, "col": 0, "action": 0, "value": 1.0071}, {"row": 4, "col": 1, "action": 0, "value": -2.015}, {"row": 4, "col": 2, "action": 0, "value": -2.0192}, {"row": 4, "col": 3, "action": 2, "value": 0.9813}, {"row": 4, "col": 4, "action": 2, "value": 0.297}], "rewards": [-794, -821, -758, -803, -740, -740, -704, -597, -767, -245, -749, -776, -767, -821, -677, -767, -722, -731, -749, -695, -758, -731, -731, -686, -794, -740, -731, -686, -695, -686, -713, -776, -749, -758, -749, -650, -632, -695, -785, -713, -722, -875, -740, -659, -677, -641, -578, -704, -812, -704, -740, -713, -713, -641, -632, -499, -686, -560, -641, -566, -596, -614, -533, -539, -623, -623, -397, -580, 14, 5, 9, 0, 7, 6, 6, 7, 11, 4, 6, 5, 12, 6, 11, 6, 8, -6, 8, -4, 8, 4, 8, 10, 5, -2, 8, 7, 13, 11, 14, 4, 9, 6, 9, 7, 8, 4, -2, 4, 8, 5, 8, 6, 8, 5, 5, 3, 6, -7, 9, 8, 8, 3, 7, -3, 4, 7, 8, 4, 2, 6, 8, -2, 14, 4, 4, 0, 9, -1, 11, 10, 8, 10, 1, 4, -3, 5, 12, 5, 10, -6, 7, 10, -4, 7, -6, 9, 8, 13, 11, 8, 5, 12, -1, -6, 3, -3, 5, 6, 7, 7, -15, 4, 14, 9, 9, 6, 8, -2, 4, 2, 6, 10, 11, -5, 10, 13, 7, 8, 4, 9, 12, 5, 4, -6, -5, 0, -4, 7, 14, 5, 10, -6, -4, 3, 10, 9, 10, 10, 13, 12, -7, 11, 8, 5, 9, 5, 4, 10, 5, 8, 7, 6, 5, 8, 13, -5, 5, 0, 8, 7, 6, 3, 9, 2, 0, 4, 5, 1, 7, -1, 0, 7, -8, 12, 6, -3, 6, 5, 11, 6, -3, 4, 4, -5, 6, 11, -3, 5, 9, 4, 8, 8, 7, -3, 5, 4, 8, 1, 6, 8, 7, 5, -5, 13, 3, 7, 3, -5, 4, 5, 2, 1, 8, 6, 4, 10, 4, 5, 7, 5, -4, 5, 8, 9, 1, 10, 6, -5, -8, 2, 11, 1, 6, 11, 3, -3, -7, 12, 5, 15, 6, 9, 8, 9, 11, 8, -4, 4, -3, 9, 5, -2, 6, -2, -17, -7, 7, 5, 1, 13, -4, 5, 10, 5, 6, 4, 4, -6, 7, 12, 5, 3, 4, 6, 7, 2, -7, 0, 13, -2, 6, 7, 12, 7, 3, 7, 15, -9, 9, 5, 8, 9, 8, 9, 10, 9, 9, 8, 2, 9, 7, 9, 9, 12, -3, 4, 11, 11, 6, 4, 9, 11, 8, 3, -4, -1, 9, 9, -11, 3, 8, 12, 5, 7, 8, 9, 10, 8, 6, 12, 11, 2, -2, 3, 10, 10, 10, 6, 12, 13, -4, 10, 7, 6, 6, 8, 8, -1, 9, 13, 8, 15, 7, 10, 5, 12, -2, 7, 4, 6, -6, 7, 8, 6, 10, 10, 7, -3, 14, 11, 7, 4, 12, 9, 4, -5, 4, 14, 5, 13, 3, 9, 6, 6, 9, -2, 3, 5], "reward_avg_last100": 5.45, "trajectory": [{"step": 0, "row": 3, "col": 4, "action": 3, "reward": -1, "done": false}, {"step": 1, "row": 3, "col": 3, "action": 1, "reward": -1, "done": false}, {"step": 2, "row": 2, "col": 3, "action": 2, "reward": -1, "done": false}, {"step": 3, "row": 2, "col": 4, "action": 1, "reward": -1, "done": false}, {"step": 4, "row": 1, "col": 4, "action": 1, "reward": -1, "done": false}, {"step": 5, "row": 0, "col": 4, "action": 4, "reward": -1, "done": false}, {"step": 6, "row": 0, "col": 4, "action": 3, "reward": -1, "done": false}, {"step": 7, "row": 0, "col": 3, "action": 3, "reward": -1, "done": false}, {"step": 8, "row": 0, "col": 2, "action": 0, "reward": -1, "done": false}, {"step": 9, "row": 1, "col": 2, "action": 0, "reward": -1, "done": false}, {"step": 10, "row": 2, "col": 2, "action": 3, "reward": -1, "done": false}, {"step": 11, "row": 2, "col": 1, "action": 3, "reward": -1, "done": false}, {"step": 12, "row": 2, "col": 0, "action": 0, "reward": -1, "done": false}, {"step": 13, "row": 3, "col": 0, "action": 0, "reward": -1, "done": false}, {"step": 14, "row": 4, "col": 0, "action": 5, "reward": 20, "done": true}]};
+
+        const actionNames = ["South ↓", "North ↑", "East →", "West ←", "Pickup 🔼", "Dropoff 🔽"];
+        const actionIcons = ["↓", "↑", "→", "←", "🔼", "🔽"];
+
         let playing = false;
         let currentStep = 0;
-        let chartInstance = null;
+        let playInterval;
 
-        async function loadData() {
-            try {
-                const [policyRes, rewardsRes, trajectoryRes] = await Promise.all([
-                    fetch(`${API_BASE}/policy`),
-                    fetch(`${API_BASE}/rewards`),
-                    fetch(`${API_BASE}/trajectory`)
-                ]);
+        function initMetrics() {
+            const rewards = data.rewards;
+            const peak = Math.max(...rewards);
+            const worst = Math.min(...rewards);
+            const avg = (rewards.reduce((a, b) => a + b) / rewards.length).toFixed(2);
+            const recent = data.reward_avg_last100.toFixed(2);
+            const convEp = rewards.findIndex(r => r > -100);
 
-                const policyJson = await policyRes.json();
-                const rewardsJson = await rewardsRes.json();
-                const trajectoryJson = await trajectoryRes.json();
-
-                policyData = policyJson.policy;
-                rewardsData = rewardsJson.rewards;
-                trajectoryData = trajectoryJson.trajectory;
-
-                const metadata = policyJson.metadata;
-                renderMetadata(metadata, rewardsJson.avg100);
-                renderPolicyGrid();
-                renderRewardChart();
-                updateTrajectoryInfo();
-            } catch (error) {
-                console.error("Error loading data:", error);
-                document.getElementById("metaGrid").innerHTML = `<div class="info-box" style="grid-column: 1/-1;">Error loading data: ${error.message}</div>`;
-            }
+            document.getElementById("statPeak").textContent = peak;
+            document.getElementById("statWorst").textContent = worst;
+            document.getElementById("statAvg").textContent = avg;
+            document.getElementById("statRecent").textContent = recent;
+            document.getElementById("episodesVal").textContent = rewards.length;
+            document.getElementById("convEpisode").textContent = convEp > 0 ? convEp : "N/A";
         }
 
-        function renderMetadata(metadata, avg100) {
-            const html = `
-                <div class="meta-item">
-                    <div class="meta-label">Environment</div>
-                    <div class="meta-value">${metadata.env}</div>
-                </div>
-                <div class="meta-item">
-                    <div class="meta-label">States</div>
-                    <div class="meta-value">${metadata.states}</div>
-                </div>
-                <div class="meta-item">
-                    <div class="meta-label">Actions</div>
-                    <div class="meta-value">${metadata.actions}</div>
-                </div>
-                <div class="meta-item">
-                    <div class="meta-label">Grid Cells</div>
-                    <div class="meta-value">${metadata.cells}</div>
-                </div>
-                <div class="meta-item">
-                    <div class="meta-label">Avg (Last 100)</div>
-                    <div class="meta-value">${avg100.toFixed(2)}</div>
-                </div>
-                <div class="meta-item">
-                    <div class="meta-label">Episodes</div>
-                    <div class="meta-value">${rewardsData.length}</div>
-                </div>
-            `;
-            document.getElementById("metaGrid").innerHTML = html;
-        }
-
-        function renderPolicyGrid() {
-            const canvas = document.getElementById("gridCanvas");
-            const ctx = canvas.getContext("2d");
-
-            canvas.width = canvas.offsetWidth;
-            canvas.height = canvas.offsetHeight;
-
-            const cellSize = Math.min(canvas.width / 6, canvas.height / 6);
-            const startX = (canvas.width - cellSize * 5) / 2;
-            const startY = (canvas.height - cellSize * 5) / 2;
-
-            ctx.fillStyle = "rgba(15, 23, 42, 0.3)";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            policyData.forEach(cell => {
-                const x = startX + cell.col * cellSize;
-                const y = startY + cell.row * cellSize;
-
-                const hue = Math.max(0, Math.min(120, (cell.value + 2) * 30));
-                ctx.fillStyle = `hsl(${hue}, 80%, 55%)`;
-                ctx.fillRect(x, y, cellSize - 2, cellSize - 2);
-
-                ctx.fillStyle = "white";
-                ctx.font = "bold 14px Arial";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillText(cell.action, x + cellSize / 2, y + cellSize / 2);
-
-                ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-                ctx.lineWidth = 1;
-                ctx.strokeRect(x, y, cellSize - 2, cellSize - 2);
-            });
-        }
-
-        function renderRewardChart() {
-            if (chartInstance) chartInstance.destroy();
-
-            const ctx = document.getElementById("rewardChart").getContext("2d");
-
+        function renderChart() {
+            const ctx = document.getElementById("trainingChart").getContext("2d");
+            const rewards = data.rewards;
             const windowSize = 20;
             const smoothed = [];
-            for (let i = 0; i < rewardsData.length; i++) {
+            for (let i = 0; i < rewards.length; i++) {
                 const start = Math.max(0, i - windowSize);
-                const end = i + 1;
-                const avg = rewardsData.slice(start, end).reduce((a, b) => a + b, 0) / (end - start);
+                const avg = rewards.slice(start, i + 1).reduce((a, b) => a + b) / (i + 1 - start);
                 smoothed.push(avg);
             }
 
-            chartInstance = new Chart(ctx, {
+            new Chart(ctx, {
                 type: "line",
                 data: {
-                    labels: rewardsData.map((_, i) => i + 1),
-                    datasets: [
-                        {
-                            label: "Raw Rewards",
-                            data: rewardsData,
-                            borderColor: "rgba(156, 163, 175, 0.3)",
-                            backgroundColor: "rgba(156, 163, 175, 0.05)",
-                            borderWidth: 1,
-                            pointRadius: 0,
-                            tension: 0.1
-                        },
-                        {
-                            label: "Smoothed (MA20)",
-                            data: smoothed,
-                            borderColor: "#3b82f6",
-                            backgroundColor: "rgba(59, 130, 246, 0.1)",
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            tension: 0.3,
-                            fill: true
-                        }
-                    ]
+                    labels: rewards.map((_, i) => i),
+                    datasets: [{
+                        label: "Raw Rewards",
+                        data: rewards,
+                        borderColor: "rgba(100, 116, 139, 0.15)",
+                        backgroundColor: "rgba(100, 116, 139, 0.02)",
+                        borderWidth: 0.5,
+                        pointRadius: 0,
+                        tension: 0.1,
+                        fill: true
+                    }, {
+                        label: "Smoothed (MA20)",
+                        data: smoothed,
+                        borderColor: "#60a5fa",
+                        backgroundColor: "rgba(96, 165, 250, 0.08)",
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0.3,
+                        fill: true
+                    }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    interaction: { mode: "index", intersect: false },
                     plugins: {
-                        legend: { labels: { color: "#cbd5e1" }, position: "top" },
-                        filler: { propagate: true }
+                        legend: { labels: { color: "#94a3b8", font: { size: 11 } } }
                     },
                     scales: {
                         x: {
-                            ticks: { color: "#94a3b8" },
-                            grid: { color: "rgba(51, 65, 85, 0.2)" },
-                            title: { display: true, text: "Episodes", color: "#94a3b8" }
+                            ticks: { color: "#64748b", maxTicksLimit: 8, font: { size: 10 } },
+                            grid: { color: "rgba(51, 65, 85, 0.1)" },
+                            title: { display: true, text: "Episode", color: "#94a3b8", font: { size: 11 } }
                         },
                         y: {
-                            ticks: { color: "#94a3b8" },
-                            grid: { color: "rgba(51, 65, 85, 0.2)" },
-                            title: { display: true, text: "Reward", color: "#94a3b8" }
+                            ticks: { color: "#64748b", font: { size: 10 } },
+                            grid: { color: "rgba(51, 65, 85, 0.1)" },
+                            title: { display: true, text: "Reward", color: "#94a3b8", font: { size: 11 } }
                         }
                     }
                 }
             });
+        }
 
-            const avg = rewardsData.reduce((a, b) => a + b, 0) / rewardsData.length;
-            const stats = `Max: ${Math.max(...rewardsData).toFixed(2)} | Min: ${Math.min(...rewardsData).toFixed(2)} | Avg: ${avg.toFixed(2)}`;
-            document.getElementById("rewardStats").textContent = stats;
+        function renderPolicy() {
+            const grid = document.getElementById("policyGrid");
+            grid.innerHTML = data.policy.map(cell => {
+                return `
+                    <div class="policy-cell" style="background: rgba(96, 165, 250, ${0.1 + cell.value / 2});">
+                        <div class="policy-action">${actionIcons[cell.action]}</div>
+                        <div class="policy-value">${cell.value.toFixed(2)}</div>
+                    </div>
+                `;
+            }).join("");
+        }
+
+        function renderQValuesHeatmap() {
+            const heatmap = document.getElementById("qvaluesHeatmap");
+            const minVal = Math.min(...data.policy.map(p => p.value));
+            const maxVal = Math.max(...data.policy.map(p => p.value));
+
+            heatmap.innerHTML = data.policy.map(cell => {
+                const normalized = (cell.value - minVal) / (maxVal - minVal);
+                const hue = normalized * 120;
+                const color = `hsl(${hue}, 80%, 45%)`;
+                return `
+                    <div class="heatmap-cell" style="background: ${color}; color: ${normalized > 0.5 ? '#000' : '#fff'};">
+                        ${cell.value.toFixed(1)}
+                    </div>
+                `;
+            }).join("");
         }
 
         function renderTrajectory() {
             const canvas = document.getElementById("trajectoryCanvas");
             const ctx = canvas.getContext("2d");
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
 
-            if (trajectoryData.length === 0) return;
+            ctx.fillStyle = "rgba(15, 23, 42, 0.8)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            const cellSize = Math.min(canvas.width / 6, canvas.height / 6);
+            const cellSize = Math.min(canvas.width / 6.5, canvas.height / 6.5);
             const startX = (canvas.width - cellSize * 5) / 2;
             const startY = (canvas.height - cellSize * 5) / 2;
 
-            ctx.fillStyle = "rgba(51, 65, 85, 0.2)";
-            for (let r = 0; r < 5; r++) {
-                for (let c = 0; c < 5; c++) {
-                    ctx.fillRect(startX + c * cellSize, startY + r * cellSize, cellSize - 1, cellSize - 1);
-                }
+            // Grid
+            ctx.strokeStyle = "rgba(51, 65, 85, 0.4)";
+            ctx.lineWidth = 1;
+            for (let r = 0; r <= 5; r++) {
+                ctx.beginPath();
+                ctx.moveTo(startX, startY + r * cellSize);
+                ctx.lineTo(startX + 5 * cellSize, startY + r * cellSize);
+                ctx.stroke();
+            }
+            for (let c = 0; c <= 5; c++) {
+                ctx.beginPath();
+                ctx.moveTo(startX + c * cellSize, startY);
+                ctx.lineTo(startX + c * cellSize, startY + 5 * cellSize);
+                ctx.stroke();
             }
 
+            // Path
             for (let i = 0; i < currentStep; i++) {
-                const step = trajectoryData[i];
+                const step = data.trajectory[i];
                 const x = startX + step.col * cellSize + cellSize / 2;
                 const y = startY + step.row * cellSize + cellSize / 2;
 
-                ctx.fillStyle = `rgba(59, 130, 246, ${0.3 + (i / currentStep) * 0.5})`;
+                ctx.fillStyle = `rgba(96, 165, 250, ${0.2 + (i / Math.max(currentStep, 1)) * 0.6})`;
                 ctx.beginPath();
-                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.arc(x, y, 3.5, 0, Math.PI * 2);
                 ctx.fill();
 
                 if (i > 0) {
-                    const prevStep = trajectoryData[i - 1];
-                    const px = startX + prevStep.col * cellSize + cellSize / 2;
-                    const py = startY + prevStep.row * cellSize + cellSize / 2;
-                    ctx.strokeStyle = `rgba(59, 130, 246, ${0.2 + (i / currentStep) * 0.5})`;
+                    const prev = data.trajectory[i - 1];
+                    const px = startX + prev.col * cellSize + cellSize / 2;
+                    const py = startY + prev.row * cellSize + cellSize / 2;
+                    ctx.strokeStyle = `rgba(96, 165, 250, ${0.15 + (i / Math.max(currentStep, 1)) * 0.4})`;
                     ctx.lineWidth = 1.5;
                     ctx.beginPath();
                     ctx.moveTo(px, py);
@@ -499,48 +636,99 @@
                 }
             }
 
-            const step = trajectoryData[currentStep];
-            const x = startX + step.col * cellSize + cellSize / 2;
-            const y = startY + step.row * cellSize + cellSize / 2;
-            ctx.fillStyle = "#fbbf24";
-            ctx.beginPath();
-            ctx.arc(x, y, 8, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = "#f59e0b";
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            // Current position
+            if (currentStep < data.trajectory.length) {
+                const step = data.trajectory[currentStep];
+                const x = startX + step.col * cellSize + cellSize / 2;
+                const y = startY + step.row * cellSize + cellSize / 2;
+
+                ctx.fillStyle = "#fbbf24";
+                ctx.beginPath();
+                ctx.arc(x, y, 9, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = "#f59e0b";
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+            }
         }
 
-        function updateTrajectoryInfo() {
-            if (currentStep < trajectoryData.length) {
-                const step = trajectoryData[currentStep];
-                const actionNames = ["South ↓", "North ↑", "East →", "West ←", "Pickup 🔼", "Dropoff 🔽"];
-                document.getElementById("trajectoryInfo").innerHTML = `
-                    Step ${currentStep + 1}/${trajectoryData.length} | Position (${step.row}, ${step.col}) | Action: ${actionNames[step.action]} | Reward: ${step.reward}
+        function updateStepInfo() {
+            if (currentStep < data.trajectory.length) {
+                const step = data.trajectory[currentStep];
+                const action = actionNames[step.action];
+                const rewardColor = step.reward > 0 ? '#4ade80' : '#ef4444';
+
+                document.getElementById("stepInfo").innerHTML = `
+                    <strong>Step ${currentStep + 1}/${data.trajectory.length}</strong><br>
+                    Pos: (${step.row}, ${step.col}) | Action: ${action}<br>
+                    Reward: <span style="color: ${rewardColor};">${step.reward > 0 ? '+' : ''}${step.reward}</span>
+                    ${step.done ? ' | <span style="color: #60a5fa;">✓ DONE</span>' : ''}
                 `;
             }
+        }
+
+        function togglePlay() {
+            if (playing) {
+                playing = false;
+                clearInterval(playInterval);
+                document.getElementById("playBtn").textContent = "▶ Play";
+            } else {
+                playing = true;
+                document.getElementById("playBtn").textContent = "⏸ Pause";
+                const speed = 1000 - parseInt(document.getElementById("speedSlider").value);
+                playInterval = setInterval(() => {
+                    if (currentStep >= data.trajectory.length - 1) {
+                        playing = false;
+                        clearInterval(playInterval);
+                        document.getElementById("playBtn").textContent = "▶ Play";
+                        return;
+                    }
+                    currentStep++;
+                    updateStepInfo();
+                    renderTrajectory();
+                }, speed);
+            }
+        }
+
+        function nextStep() {
+            playing = false;
+            clearInterval(playInterval);
+            document.getElementById("playBtn").textContent = "▶ Play";
+            if (currentStep < data.trajectory.length - 1) {
+                currentStep++;
+                updateStepInfo();
+                renderTrajectory();
+            }
+        }
+
+        function prevStep() {
+            playing = false;
+            clearInterval(playInterval);
+            document.getElementById("playBtn").textContent = "▶ Play";
+            if (currentStep > 0) {
+                currentStep--;
+                updateStepInfo();
+                renderTrajectory();
+            }
+        }
+
+        function resetTraj() {
+            playing = false;
+            clearInterval(playInterval);
+            document.getElementById("playBtn").textContent = "▶ Play";
+            currentStep = 0;
+            updateStepInfo();
             renderTrajectory();
         }
 
-        function playTrajectory() {
-            playing = true;
-            const interval = setInterval(() => {
-                if (!playing || currentStep >= trajectoryData.length - 1) {
-                    clearInterval(interval);
-                    playing = false;
-                    return;
-                }
-                currentStep++;
-                updateTrajectoryInfo();
-            }, 300);
-        }
-
-        function pauseTrajectory() { playing = false; }
-        function resetTrajectory() { currentStep = 0; playing = false; updateTrajectoryInfo(); }
-        function nextStep() { if (currentStep < trajectoryData.length - 1) { currentStep++; updateTrajectoryInfo(); } }
-        function prevStep() { if (currentStep > 0) { currentStep--; updateTrajectoryInfo(); } }
-
-        loadData();
+        // Initialize
+        initMetrics();
+        renderChart();
+        renderPolicy();
+        renderQValuesHeatmap();
+        renderTrajectory();
+        updateStepInfo();
     </script>
 </body>
 </html>
