@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Header -->
+<header class="header">
+  <div class="header-content">
+    <div class="logo">
+      <div class="logo-icon">🐍</div>
+      <div class="logo-text">
+        <h1>Snake AI Viewer</h1>
+        <p>PPO Reinforcement Learning</p>
+      </div>
+    </div>
+    <nav class="nav-links">
+      <a href="#viewer" class="nav-link">Viewer</a>
+      <a href="#about" class="nav-link">About PPO</a>
+      <a href="#results" class="nav-link">Results</a>
+    </nav>
+  </div>
+</header>
+
+<!-- Hero Section -->
+<section class="hero">
+  <h1 class="hero-title">AI Impara a Giocare a Snake</h1>
+  <p class="hero-subtitle">
+    Esplora come un agente di Reinforcement Learning utilizza l’algoritmo PPO
+    per imparare a giocare a Snake.
+  </p>
+
+  <div class="hero-stats">
+    <div class="hero-stat">
+      <div class="hero-stat-value">10K+</div>
+      <div class="hero-stat-label">Episodi</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-value">95%</div>
+      <div class="hero-stat-label">Successo</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-value">42</div>
+      <div class="hero-stat-label">Lunghezza Max</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-value">PPO</div>
+      <div class="hero-stat-label">Algoritmo</div>
+    </div>
+  </div>
+</section>
+
+<!-- Main App -->
+<div class="container" id="viewer">
+  <div class="snake-app">
+
+    <!-- Sidebar -->
+    <aside class="snake-sidebar">
+
+      <div class="sidebar-header">
+        <h2>Controlli</h2>
+        <p class="subtitle">Visualizza gli episodi di training</p>
+      </div>
+
+      <div class="sidebar-section">
+        <label>Seleziona Episodio</label>
+        <select id="episode-select" class="episode-select">
+          {% for ep in episodes %}
+              <option value="{{ ep.file }}">
+                  🍏 {{ ep.apples }} mele — ep {{ ep.episode }}
+              </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="sidebar-section">
+        <h3>Playback</h3>
+        <label>Velocità Riproduzione</label>
+        <div class="speed-control">
+          <input type="range" id="speed-slider" class="slider" min="1" max="30" value="10">
+          <span id="speed-value" class="speed-value">10x</span>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <label>Timeline</label>
+        <input type="range" id="frame-slider" class="slider" min="0" value="0">
+        <div class="frame-info">
+          <span>Frame: <span id="current-frame">0</span></span>
+          <span>Total: <span id="total-frames">0</span></span>
+        </div>
+      </div>
+
+      <div class="button-group">
+        <button id="play-btn" class="btn btn-primary">▶ Play</button>
+        <button id="pause-btn" class="btn btn-secondary" disabled>⏸ Pause</button>
+        <button id="reset-btn" class="btn btn-secondary">⏮ Reset</button>
+      </div>
+
+      <div class="sidebar-section">
+        <h3>Statistiche Episodio</h3>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-label">Lunghezza</span>
+            <span id="stat-length" class="stat-value">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Steps Totali</span>
+            <span id="stat-total-steps" class="stat-value">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Mele</span>
+            <span id="stat-apples" class="stat-value">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Fine</span>
+            <span id="stat-cause" class="stat-value">-</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3>Dettagli Frame</h3>
+        <div class="details-section">
+          <div class="detail-row">
+            <span class="detail-label">Step:</span>
+            <span id="detail-step" class="detail-value">0</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Reward:</span>
+            <span id="detail-reward" class="detail-value">0.000</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Snake:</span>
+            <span id="detail-snake-pos" class="detail-value">[0, 0]</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Apple:</span>
+            <span id="detail-apple-pos" class="detail-value">[0, 0]</span>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- Viewer -->
+    <main class="snake-main">
+      <div class="canvas-container">
+        <canvas id="snake-canvas" class="game-canvas" width="600" height="600"></canvas>
+        <div id="canvas-overlay" class="canvas-overlay">Loading...</div>
+      </div>
+
+      <div class="info-bar">
+        <div class="info-item">
+          <span class="info-label">Status:</span>
+          <span id="status-indicator" class="info-value">Ready</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Frame:</span>
+          <span id="current-frame-2" class="info-value">0</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">FPS:</span>
+          <span id="fps-counter" class="info-value">0</span>
+        </div>
+      </div>
+    </main>
+
+  </div>
+</div>
+
+<!-- Assets -->
+<link rel="stylesheet" href="{{ url_for('snake.static', filename='snake_viewer.css') }}">
+<script src="{{ url_for('snake.static', filename='snake_viewer.js') }}" defer></script>
+
+{% endblock %}
