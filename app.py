@@ -1,6 +1,7 @@
 import os
 from flask import Flask, render_template
 
+from experiments.bipedal_walker.walker_routes import walker_bp
 from experiments.cliffwalking.routes import cliff_bp
 from experiments.taxi_v3.routes import taxi_v3_bp
 from experiments.lunarlander.routes import lunarlander_bp
@@ -34,6 +35,7 @@ def create_app():
 
     app.register_blueprint(snake_bp, url_prefix="/snake")
 
+    app.register_blueprint(walker_bp)
     return app
 
 if __name__ == "__main__":

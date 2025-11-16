@@ -1,0 +1,687 @@
+/* ============================================================
+   RESET & GLOBAL STYLES
+   ============================================================ */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 50%, #16213e 100%);
+    color: #e0e0e0;
+    min-height: 100vh;
+    line-height: 1.6;
+}
+
+/* ============================================================
+   HERO SECTION
+   ============================================================ */
+.wv-hero {
+    position: relative;
+    padding: 80px 40px;
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(124, 58, 237, 0.1) 100%);
+    border-bottom: 2px solid rgba(0, 212, 255, 0.3);
+    overflow: hidden;
+}
+
+.wv-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+        radial-gradient(circle at 20% 50%, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(124, 58, 237, 0.1) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+.wv-hero-content {
+    position: relative;
+    z-index: 2;
+    max-width: 1400px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items: center;
+}
+
+.wv-hero-text h1 {
+    font-size: clamp(2em, 5vw, 3.5em);
+    background: linear-gradient(135deg, #00d4ff, #7c3aed, #ff006e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 900;
+    margin-bottom: 15px;
+    letter-spacing: -1px;
+}
+
+.wv-hero-subtitle {
+    font-size: 1.3em;
+    color: #00d4ff;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.wv-hero-description {
+    font-size: 1em;
+    color: #a0a0a0;
+    margin-bottom: 0;
+}
+
+.wv-hero-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.wv-hero-stat {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.wv-hero-stat:hover {
+    border-color: rgba(0, 212, 255, 0.6);
+    background: rgba(0, 212, 255, 0.1);
+    transform: translateY(-4px);
+}
+
+.wv-hero-stat-label {
+    display: block;
+    font-size: 0.85em;
+    color: #a0a0a0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+}
+
+.wv-hero-stat-value {
+    display: block;
+    font-size: 2em;
+    font-weight: 700;
+    color: #00d4ff;
+}
+
+.wv-hero-accent {
+    position: absolute;
+    bottom: -1px;
+    right: 0;
+    width: 400px;
+    height: 200px;
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.3) 0%, transparent 70%);
+    border-radius: 50% 0 0 0;
+    pointer-events: none;
+}
+
+@media (max-width: 800px) {
+    .wv-hero {
+        padding: 50px 20px;
+    }
+
+    .wv-hero-content {
+        grid-template-columns: 1fr;
+        gap: 30px;
+    }
+
+    .wv-hero-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .wv-hero-accent {
+        display: none;
+    }
+}
+
+/* ============================================================
+   CONTAINER & LAYOUT
+   ============================================================ */
+.wv-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 40px 20px;
+}
+
+/* ============================================================
+   CONTROLS SECTION
+   ============================================================ */
+.wv-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-bottom: 40px;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 25px;
+    border-radius: 12px;
+    align-items: center;
+}
+
+.wv-controls-left,
+.wv-controls-right {
+    display: grid;
+    gap: 15px;
+}
+
+.wv-controls-left {
+    grid-template-columns: 1fr 1fr;
+}
+
+.wv-controls-right {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.wv-control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.wv-control-group label {
+    font-weight: 600;
+    font-size: 0.85em;
+    color: #00d4ff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+select {
+    padding: 12px 15px;
+    background: rgba(0, 212, 255, 0.1);
+    border: 2px solid rgba(0, 212, 255, 0.3);
+    color: #e0e0e0;
+    border-radius: 8px;
+    font-size: 0.95em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+select:hover {
+    border-color: rgba(0, 212, 255, 0.6);
+    background: rgba(0, 212, 255, 0.15);
+}
+
+select:focus {
+    outline: none;
+    border-color: #00d4ff;
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
+}
+
+.wv-speed-control {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+input[type="range"] {
+    flex: 1;
+    height: 6px;
+    background: rgba(0, 212, 255, 0.2);
+    border-radius: 3px;
+    outline: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #00d4ff, #7c3aed);
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #00d4ff, #7c3aed);
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+}
+
+.wv-speed-value {
+    min-width: 50px;
+    text-align: right;
+    color: #00d4ff;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.wv-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 18px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.85em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.wv-btn-primary {
+    background: linear-gradient(135deg, #00d4ff, #7c3aed);
+    color: white;
+    flex: 1;
+}
+
+.wv-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0, 212, 255, 0.3);
+}
+
+.wv-btn-primary:active {
+    transform: translateY(0);
+}
+
+.wv-btn-secondary {
+    background: rgba(0, 212, 255, 0.1);
+    color: #00d4ff;
+    border: 1px solid rgba(0, 212, 255, 0.3);
+}
+
+.wv-btn-secondary:hover {
+    background: rgba(0, 212, 255, 0.2);
+    border-color: rgba(0, 212, 255, 0.6);
+    transform: translateY(-2px);
+}
+
+.wv-btn-icon {
+    font-size: 1.1em;
+}
+
+@media (max-width: 900px) {
+    .wv-controls {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    .wv-controls-left {
+        grid-template-columns: 1fr;
+    }
+
+    .wv-controls-right {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ============================================================
+   MAIN GRID
+   ============================================================ */
+.wv-main {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+/* ============================================================
+   CANVAS SECTION
+   ============================================================ */
+.wv-canvas-section {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 20px;
+    overflow: hidden;
+}
+
+.wv-canvas-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.wv-canvas-header h2 {
+    font-size: 1.2em;
+    color: #e0e0e0;
+}
+
+.wv-canvas-info {
+    color: #a0a0a0;
+    font-size: 0.9em;
+}
+
+.wv-canvas-wrapper {
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 212, 255, 0.1);
+}
+
+#walkerCanvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.1));
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+.wv-sidebar {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 20px;
+    max-height: 900px;
+    overflow-y: auto;
+}
+
+.wv-sidebar h3 {
+    color: #00d4ff;
+    font-size: 0.95em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+}
+
+.wv-stat-card {
+    background: rgba(0, 212, 255, 0.05);
+    border: 1px solid rgba(0, 212, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+    transition: all 0.3s ease;
+}
+
+.wv-stat-card:hover {
+    background: rgba(0, 212, 255, 0.1);
+    border-color: rgba(0, 212, 255, 0.3);
+}
+
+.wv-stat-card-label {
+    font-size: 0.75em;
+    color: #a0a0a0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+}
+
+.wv-stat-card-value {
+    font-size: 1.5em;
+    font-weight: 700;
+    color: #00d4ff;
+    font-family: 'Courier New', monospace;
+}
+
+.wv-stat-progress {
+    width: 100%;
+    height: 6px;
+    background: rgba(0, 212, 255, 0.2);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 8px;
+}
+
+.wv-stat-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #00d4ff, #7c3aed);
+    border-radius: 3px;
+    transition: width 0.2s linear;
+}
+
+.wv-sidebar-divider {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    margin: 20px 0;
+}
+
+/* ============================================================
+   ACTIONS
+   ============================================================ */
+.wv-actions {
+    display: grid;
+    gap: 15px;
+}
+
+.wv-action-item {
+    display: grid;
+    grid-template-columns: 40px 1fr 40px;
+    gap: 8px;
+    align-items: center;
+}
+
+.wv-action-item label {
+    font-size: 0.8em;
+    color: #a0a0a0;
+    font-weight: 500;
+}
+
+.wv-action-bar {
+    height: 8px;
+    background: rgba(0, 212, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 212, 255, 0.2);
+}
+
+.wv-action-value {
+    height: 100%;
+    background: linear-gradient(90deg, #00d4ff, #7c3aed);
+    width: 0%;
+    border-radius: 4px;
+    transition: width 0.1s linear;
+}
+
+.wv-action-text {
+    font-size: 0.8em;
+    color: #00d4ff;
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+}
+
+/* ============================================================
+   GRAPHS SECTION
+   ============================================================ */
+.wv-graphs {
+    margin-bottom: 40px;
+}
+
+.wv-graphs h2 {
+    font-size: 1.5em;
+    color: #e0e0e0;
+    margin-bottom: 20px;
+}
+
+.wv-graphs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 20px;
+}
+
+.wv-graph {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.wv-graph-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.wv-graph-header h3 {
+    font-size: 1em;
+    color: #e0e0e0;
+}
+
+.wv-graph-subtitle {
+    font-size: 0.8em;
+    color: #a0a0a0;
+}
+
+svg {
+    width: 100%;
+    height: auto;
+}
+
+/* ============================================================
+   ADVANCED METRICS
+   ============================================================ */
+.wv-advanced {
+    margin-bottom: 40px;
+}
+
+.wv-advanced h2 {
+    font-size: 1.5em;
+    color: #e0e0e0;
+    margin-bottom: 20px;
+}
+
+.wv-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.wv-metric {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.wv-metric:hover {
+    background: rgba(0, 212, 255, 0.1);
+    border-color: rgba(0, 212, 255, 0.3);
+    transform: translateY(-4px);
+}
+
+.wv-metric-label {
+    font-size: 0.85em;
+    color: #a0a0a0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+}
+
+.wv-metric-value {
+    font-size: 2em;
+    font-weight: 700;
+    color: #00d4ff;
+    font-family: 'Courier New', monospace;
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+.wv-footer {
+    text-align: center;
+    padding: 30px 20px;
+    color: #a0a0a0;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 0.9em;
+}
+
+/* ============================================================
+   SCROLLBAR STYLING
+   ============================================================ */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(0, 212, 255, 0.3);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 212, 255, 0.6);
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1024px) {
+    .wv-main {
+        grid-template-columns: 1fr;
+    }
+
+    .wv-sidebar {
+        max-height: none;
+    }
+
+    .wv-graphs-grid {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .wv-container {
+        padding: 20px 10px;
+    }
+
+    .wv-controls {
+        padding: 15px;
+        gap: 10px;
+    }
+
+    .wv-controls-left {
+        grid-template-columns: 1fr;
+    }
+
+    .wv-controls-right {
+        grid-template-columns: 2fr 1fr;
+    }
+
+    .wv-graphs-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .wv-metrics-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .wv-btn-text {
+        display: none;
+    }
+}

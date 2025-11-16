@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bipedal Walker TD3 – Viewer</title>
+    <link rel="stylesheet" href="{{ url_for('walker.static', filename='walker_viewers.css') }}">
+</head>
+<body>
+
+<!-- HERO SECTION -->
+<section class="wv-hero">
+    <div class="wv-hero-content">
+        <div class="wv-hero-text">
+            <h1 class="wv-hero-title">🤖 Bipedal Walker TD3</h1>
+            <p class="wv-hero-subtitle">Visualizzazione in tempo reale dell'apprendimento per rinforzo</p>
+            <p class="wv-hero-description">Esplora le traiettorie di movimento del walker e analizza le performance episodio per episodio</p>
+        </div>
+        <div class="wv-hero-stats">
+            <div class="wv-hero-stat">
+                <span class="wv-hero-stat-label">Episodi</span>
+                <span class="wv-hero-stat-value" id="heroEpisodeCount">0</span>
+            </div>
+            <div class="wv-hero-stat">
+                <span class="wv-hero-stat-label">Run Attiva</span>
+                <span class="wv-hero-stat-value">run_active</span>
+            </div>
+            <div class="wv-hero-stat">
+                <span class="wv-hero-stat-label">Algoritmo</span>
+                <span class="wv-hero-stat-value">TD3</span>
+            </div>
+        </div>
+    </div>
+    <div class="wv-hero-accent"></div>
+</section>
+
+<!-- MAIN CONTAINER -->
+<div class="wv-container">
+
+    <!-- CONTROLS SECTION -->
+    <section class="wv-controls">
+        <div class="wv-controls-left">
+            <div class="wv-control-group">
+                <label for="episodeSelect">Seleziona Episodio</label>
+                <select id="episodeSelect"></select>
+            </div>
+
+            <div class="wv-control-group">
+                <label for="speedRange">Velocità Riproduzione</label>
+                <div class="wv-speed-control">
+                    <input id="speedRange" type="range" min="0.25" max="3" step="0.25" value="1">
+                    <span id="speedLabel" class="wv-speed-value">1.00x</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="wv-controls-right">
+            <button id="playPauseBtn" class="wv-btn wv-btn-primary">
+                <span class="wv-btn-icon">▶</span>
+                <span class="wv-btn-text">Play</span>
+            </button>
+            <button id="stepBackBtn" class="wv-btn wv-btn-secondary">
+                <span class="wv-btn-icon">⏮</span>
+                <span class="wv-btn-text">Indietro</span>
+            </button>
+            <button id="stepForwardBtn" class="wv-btn wv-btn-secondary">
+                <span class="wv-btn-icon">⏭</span>
+                <span class="wv-btn-text">Avanti</span>
+            </button>
+            <button id="reloadBtn" class="wv-btn wv-btn-secondary">
+                <span class="wv-btn-icon">⟳</span>
+                <span class="wv-btn-text">Ricarica</span>
+            </button>
+        </div>
+    </section>
+
+    <!-- MAIN GRID -->
+    <div class="wv-main">
+
+        <!-- CANVAS SECTION -->
+        <section class="wv-canvas-section">
+            <div class="wv-canvas-header">
+                <h2>Visualizzazione Walker</h2>
+                <div class="wv-canvas-info">
+                    <span id="canvasInfo">Step: 0/0</span>
+                </div>
+            </div>
+            <div class="wv-canvas-wrapper">
+                <canvas id="walkerCanvas" width="1200" height="600"></canvas>
+            </div>
+        </section>
+
+        <!-- SIDEBAR STATS -->
+        <aside class="wv-sidebar">
+            <h3>Informazioni Episodio</h3>
+
+            <div class="wv-stat-card">
+                <div class="wv-stat-card-label">Episodio</div>
+                <div class="wv-stat-card-value" id="statEpisode">-</div>
+            </div>
+
+            <div class="wv-stat-card">
+                <div class="wv-stat-card-label">Step Corrente</div>
+                <div class="wv-stat-card-value" id="statStep">0</div>
+                <div class="wv-stat-progress">
+                    <div class="wv-stat-progress-bar" id="progressBar"></div>
+                </div>
+            </div>
+
+            <div class="wv-stat-card">
+                <div class="wv-stat-card-label">Reward Step</div>
+                <div class="wv-stat-card-value" id="statReward">0.0000</div>
+            </div>
+
+            <div class="wv-stat-card">
+                <div class="wv-stat-card-label">Reward Cumulativo</div>
+                <div class="wv-stat-card-value" id="statCumulative">0.00</div>
+            </div>
+
+            <div class="wv-stat-card">
+                <div class="wv-stat-card-label">Velocità X</div>
+                <div class="wv-stat-card-value" id="statVelX">0.000</div>
+            </div>
+
+            <div class="wv-stat-card">
+                <div class="wv-stat-card-label">Velocità Y</div>
+                <div class="wv-stat-card-value" id="statVelY">0.000</div>
+            </div>
+
+            <div class="wv-stat-card">
+                <div class="wv-stat-card-label">Contatti Terra</div>
+                <div class="wv-stat-card-value" id="statContact">-</div>
+            </div>
+
+            <hr class="wv-sidebar-divider">
+
+            <h3>Azioni Attuali</h3>
+            <div class="wv-actions">
+                <div class="wv-action-item">
+                    <label>Motor 1</label>
+                    <div class="wv-action-bar">
+                        <div class="wv-action-value" id="action0"></div>
+                    </div>
+                    <span id="actionVal0" class="wv-action-text">0.00</span>
+                </div>
+                <div class="wv-action-item">
+                    <label>Motor 2</label>
+                    <div class="wv-action-bar">
+                        <div class="wv-action-value" id="action1"></div>
+                    </div>
+                    <span id="actionVal1" class="wv-action-text">0.00</span>
+                </div>
+                <div class="wv-action-item">
+                    <label>Motor 3</label>
+                    <div class="wv-action-bar">
+                        <div class="wv-action-value" id="action2"></div>
+                    </div>
+                    <span id="actionVal2" class="wv-action-text">0.00</span>
+                </div>
+                <div class="wv-action-item">
+                    <label>Motor 4</label>
+                    <div class="wv-action-bar">
+                        <div class="wv-action-value" id="action3"></div>
+                    </div>
+                    <span id="actionVal3" class="wv-action-text">0.00</span>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- GRAPHS SECTION -->
+    <section class="wv-graphs">
+        <h2>Analisi Episodio</h2>
+        <div class="wv-graphs-grid">
+            <div class="wv-graph">
+                <div class="wv-graph-header">
+                    <h3>Reward nel Tempo</h3>
+                    <span class="wv-graph-subtitle" id="rewardStats">Min: 0 | Max: 0 | Avg: 0</span>
+                </div>
+                <svg id="rewardChart" viewBox="0 0 400 150"></svg>
+            </div>
+
+            <div class="wv-graph">
+                <div class="wv-graph-header">
+                    <h3>Velocità Orizzontale</h3>
+                    <span class="wv-graph-subtitle" id="velocityStats">Min: 0 | Max: 0 | Avg: 0</span>
+                </div>
+                <svg id="velocityChart" viewBox="0 0 400 150"></svg>
+            </div>
+
+            <div class="wv-graph">
+                <div class="wv-graph-header">
+                    <h3>Azioni (Media)</h3>
+                    <span class="wv-graph-subtitle" id="actionsStats">Min: 0 | Max: 0 | Avg: 0</span>
+                </div>
+                <svg id="actionsChart" viewBox="0 0 400 150"></svg>
+            </div>
+
+            <div class="wv-graph">
+                <div class="wv-graph-header">
+                    <h3>Posizione X del Corpo</h3>
+                    <span class="wv-graph-subtitle" id="positionStats">Min: 0 | Max: 0 | Avg: 0</span>
+                </div>
+                <svg id="positionChart" viewBox="0 0 400 150"></svg>
+            </div>
+        </div>
+    </section>
+
+    <!-- ADVANCED METRICS -->
+    <section class="wv-advanced">
+        <h2>Metriche Avanzate</h2>
+        <div class="wv-metrics-grid">
+            <div class="wv-metric">
+                <div class="wv-metric-label">Lunghezza Episodio</div>
+                <div class="wv-metric-value" id="metricLength">0</div>
+            </div>
+            <div class="wv-metric">
+                <div class="wv-metric-label">Reward Totale</div>
+                <div class="wv-metric-value" id="metricTotal">0.00</div>
+            </div>
+            <div class="wv-metric">
+                <div class="wv-metric-label">Reward Medio</div>
+                <div class="wv-metric-value" id="metricAvg">0.00</div>
+            </div>
+            <div class="wv-metric">
+                <div class="wv-metric-label">Velocità Media X</div>
+                <div class="wv-metric-value" id="metricAvgVel">0.00</div>
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<!-- FOOTER -->
+<footer class="wv-footer">
+    <p>&copy; 2025 Bipedal Walker RL Viewer | TD3 Training Visualization</p>
+</footer>
+
+<script src="{{ url_for('walker.static', filename='walker_viewers.js') }}"></script>
+</body>
+</html>
