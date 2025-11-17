@@ -4,13 +4,143 @@
 let episodes = [];
 let currentEpisode = null;
 let trajectory = [];
+let goalFrame = null;
+let goalX = null;
+let walkerX = 0;
+let lastVelX = 0;
+let worldX = 0;
 let playing = false;
 let frameIndex = 0;
 let speed = 1;
 let cumulativeReward = 0;
 
+// --- PHYSICS & PARTICLES ---
+let particles = [];
+let legTrail = [];
+let footPressure = { leg0: 0, leg1: 0 };
+
 const canvas = document.getElementById('walkerCanvas');
 const ctx = canvas.getContext('2d');
+
+// ============================================================
+// PARTICLE SYSTEM
+// ============================================================
+class Particle {
+    constructor(x, y, vx, vy, life, size, color, type = 'dust') {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.life = life;
+        this.maxLife = life;
+        this.size = size;
+        this.color = color;
+        this.type = type;
+        this.rotation = Math.random() * Math.PI * 2;
+        this.rotSpeed = (Math.random() - 0.5) * 0.1;
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy += 0.15; // gravità
+        this.life -= 1;
+        this.vx *= 0.96; // attrito
+        this.rotation += this.rotSpeed;
+    }
+
+    draw(ctx) {
+        const alpha = this.life / this.maxLife;
+        ctx.save();
+        ctx.globalAlpha = alpha * 0.8;
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+
+        if (this.type === 'dust') {
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (this.type === 'spark') {
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = this.size;
+            ctx.beginPath();
+            ctx.moveTo(-5, 0);
+            ctx.lineTo(5, 0);
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+}
+
+function emitParticles(x, y, count, vx, vy, color, type = 'dust') {
+    for (let i = 0; i < count; i++) {
+        const angle = (Math.random() * Math.PI * 2);
+        const speed = Math.random() * 2 + 1;
+        const px = x + (Math.random() - 0.5) * 10;
+        const py = y + (Math.random() - 0.5) * 5;
+        const pvx = Math.cos(angle) * speed + vx * 0.3;
+        const pvy = Math.sin(angle) * speed + vy * 0.3;
+        const life = Math.random() * 30 + 20;
+        const size = Math.random() * 2 + 1;
+
+        particles.push(new Particle(px, py, pvx, pvy, life, size, color, type));
+    }
+}
+
+function updateParticles() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        if (particles[i].life <= 0) {
+            particles.splice(i, 1);
+        }
+    }
+}
+
+function drawParticles() {
+    particles.forEach(p => p.draw(ctx));
+}
+
+// ============================================================
+// LEG TRAIL SYSTEM
+// ============================================================
+class TrailPoint {
+    constructor(x, y, life, isLeft) {
+        this.x = x;
+        this.y = y;
+        this.life = life;
+        this.maxLife = life;
+        this.isLeft = isLeft;
+    }
+
+    draw(ctx) {
+        const alpha = this.life / this.maxLife;
+        const color = this.isLeft ? '#9333ea' : '#f97316';
+        ctx.strokeStyle = `rgba(${this.isLeft ? '147, 51, 234' : '249, 115, 22'}, ${alpha * 0.4})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+}
+
+function addTrailPoint(x, y, isLeft) {
+    legTrail.push(new TrailPoint(x, y, 15, isLeft));
+}
+
+function updateTrail() {
+    for (let i = legTrail.length - 1; i >= 0; i--) {
+        legTrail[i].life -= 1;
+        if (legTrail[i].life <= 0) {
+            legTrail.splice(i, 1);
+        }
+    }
+}
+
+function drawTrail() {
+    legTrail.forEach(t => t.draw(ctx));
+}
 
 // ============================================================
 // LOAD EPISODES
@@ -19,7 +149,7 @@ async function loadEpisodes() {
     try {
         const res = await fetch('/walker/api/episodes');
         const data = await res.json();
-        episodes = data.episodes;
+        episodes = data.episodes || [];
 
         const select = document.getElementById('episodeSelect');
         select.innerHTML = '';
@@ -48,9 +178,24 @@ async function loadTrajectory(ep) {
     try {
         const res = await fetch(`/walker/api/trajectory/${ep}`);
         trajectory = await res.json();
+
         frameIndex = 0;
         cumulativeReward = 0;
         playing = false;
+        walkerX = 0;
+        worldX = 0;
+        lastVelX = 0;
+        particles = [];
+        legTrail = [];
+
+        goalFrame = null;
+        for (let i = 0; i < trajectory.length; i++) {
+            if (trajectory[i].done) {
+                goalFrame = trajectory[i];
+                break;
+            }
+        }
+        goalX = null;
 
         document.getElementById('statEpisode').textContent = ep;
         document.getElementById('playPauseBtn').textContent = '▶ Play';
@@ -63,422 +208,324 @@ async function loadTrajectory(ep) {
 }
 
 // ============================================================
-// BIPEDAL WALKER BODY STRUCTURE
-// Estrae posizione e angoli dallo state (24 valori)
+// PARSE WALKER STATE
 // ============================================================
 function parseWalkerState(state) {
-    // State structure (BipedalWalker):
-    // [0-3]: hull + leg0 info
-    // [4-7]: leg0 joints
-    // [8-11]: leg1 joints
-    // [12-15]: contact sensors, etc.
-    // [16-23]: sensori di contatto gambe (normalizzati)
+    if (!state || state.length < 20) {
+        return {
+            hullAngle: 0,
+            hullAngVel: 0,
+            hullVelX: 0,
+            hullVelY: 0,
+            leg0Hip: 0,
+            leg0HipSpeed: 0,
+            leg0Knee: 0,
+            leg0KneeSpeed: 0,
+            leg1Hip: 0,
+            leg1HipSpeed: 0,
+            leg1Knee: 0,
+            leg1KneeSpeed: 0,
+            leg0FootContact: false,
+            leg1FootContact: false
+        };
+    }
 
     return {
-        // Posizione del corpo (normalizzata, scala ~[-1, 1])
-        bodyX: state[0] * 100,      // pixel offset
-        bodyY: state[1] * 100,
-
-        // Angoli delle gambe (radianti, convertiti da [-1, 1])
-        leg0Hip: state[4] * Math.PI,
-        leg0Knee: state[5] * Math.PI,
-        leg1Hip: state[8] * Math.PI,
-        leg1Knee: state[9] * Math.PI,
-
-        // Velocità (utile per animazione)
-        velX: state[2],
-        velY: state[3],
-
-        // Contatti a terra
-        leg0Ground: state[16] > 0.5,
-        leg1Ground: state[20] > 0.5,
+        hullAngle: state[0],
+        hullAngVel: state[1],
+        hullVelX: state[2],
+        hullVelY: state[3],
+        leg0Hip: state[4],
+        leg0HipSpeed: state[5],
+        leg0Knee: state[6],
+        leg0KneeSpeed: state[7],
+        leg1Hip: state[8],
+        leg1HipSpeed: state[9],
+        leg1Knee: state[10],
+        leg1KneeSpeed: state[11],
+        leg0FootContact: state[12] > 0.5 || state[13] > 0.5 || state[14] > 0.5 || state[15] > 0.5,
+        leg1FootContact: state[16] > 0.5 || state[17] > 0.5 || state[18] > 0.5 || state[19] > 0.5
     };
 }
 
 // ============================================================
-// DRAW WALKER ON CANVAS
+// DRAW SHADOW
 // ============================================================
-function drawWalker(state, action) {
-    const parsed = parseWalkerState(state);
-
-    // Centro del canvas
-    const centerX = canvas.width * 0.4;
-    const centerY = canvas.height * 0.65;
-
-    // Dimensioni corpo
-    const bodyRadius = 12;
-    const legLength = 40;
-    const footRadius = 6;
+function drawShadow(x, y, hullAngle) {
+    const horizonY = canvas.height * 0.65;
+    const shadowStretch = 1 + Math.abs(Math.sin(hullAngle)) * 0.3;
 
     ctx.save();
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = '#000000';
 
-    // Disegna corpo (hull)
-    ctx.fillStyle = '#00d4ff';
     ctx.beginPath();
-    ctx.arc(centerX + parsed.bodyX, centerY + parsed.bodyY, bodyRadius, 0, Math.PI * 2);
+    ctx.ellipse(x, horizonY, 35 * shadowStretch, 8, hullAngle * 0.3, 0, Math.PI * 2);
     ctx.fill();
-
-    ctx.strokeStyle = '#7c3aed';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Disegna le due gambe
-    drawLeg(
-        centerX + parsed.bodyX,
-        centerY + parsed.bodyY,
-        parsed.leg0Hip,
-        parsed.leg0Knee,
-        legLength,
-        parsed.leg0Ground,
-        false
-    );
-
-    drawLeg(
-        centerX + parsed.bodyX,
-        centerY + parsed.bodyY,
-        parsed.leg1Hip,
-        parsed.leg1Knee,
-        legLength,
-        parsed.leg1Ground,
-        true
-    );
 
     ctx.restore();
 }
 
 // ============================================================
-// DRAW SINGLE LEG
+// DRAW MUSCLE TENSION VISUALIZATION
 // ============================================================
-function drawLeg(bodyX, bodyY, hipAngle, kneeAngle, legLen, grounded, isRight) {
-    const segLen = legLen / 2;
-    const footRadius = 6;
-    const offset = isRight ? 15 : -15;
+function drawMuscleTension(state) {
+    const parsed = parseWalkerState(state);
 
-    // Hip joint position
-    const hip = {
-        x: bodyX + offset,
-        y: bodyY
-    };
+    // Calcola lo sforzo dai velocity (energia cinetica delle articolazioni)
+    const leg0Effort = Math.min(1, (Math.abs(parsed.leg0HipSpeed) + Math.abs(parsed.leg0KneeSpeed)) / 10);
+    const leg1Effort = Math.min(1, (Math.abs(parsed.leg1HipSpeed) + Math.abs(parsed.leg1KneeSpeed)) / 10);
 
-    // Knee position (primo segmento)
-    const knee = {
-        x: hip.x + Math.sin(hipAngle) * segLen,
-        y: hip.y + Math.cos(hipAngle) * segLen
-    };
+    const x = canvas.width * 0.4;
+    const y = canvas.height * 0.7 - 30;
 
-    // Foot position (secondo segmento)
-    const foot = {
-        x: knee.x + Math.sin(hipAngle + kneeAngle) * segLen,
-        y: knee.y + Math.cos(hipAngle + kneeAngle) * segLen
-    };
+    // Disegna aure di sforzo intorno al corpo
+    ctx.save();
 
-    // Colore in base al contatto
-    ctx.strokeStyle = grounded ? '#00ff00' : '#ff6b6b';
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    // Disegna segmenti
+    // Leg 0 aura
+    const aura0Alpha = leg0Effort * 0.3;
+    ctx.fillStyle = `rgba(147, 51, 234, ${aura0Alpha})`;
     ctx.beginPath();
-    ctx.moveTo(hip.x, hip.y);
-    ctx.lineTo(knee.x, knee.y);
-    ctx.lineTo(foot.x, foot.y);
+    ctx.arc(x - 20, y + 20, 15 + leg0Effort * 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Leg 1 aura
+    const aura1Alpha = leg1Effort * 0.3;
+    ctx.fillStyle = `rgba(249, 115, 22, ${aura1Alpha})`;
+    ctx.beginPath();
+    ctx.arc(x + 20, y + 20, 15 + leg1Effort * 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+
+    return { leg0Effort, leg1Effort };
+}
+
+// ============================================================
+// DRAW JOINTS
+// ============================================================
+function drawJoints(x, y, hipAngle, kneeAngle) {
+    const upperLeg = 35;
+    const kneeX = x + Math.sin(hipAngle) * upperLeg;
+    const kneeY = y + Math.cos(hipAngle) * upperLeg;
+
+    const lowerLeg = 35;
+    const footX = kneeX + Math.sin(hipAngle + kneeAngle) * lowerLeg;
+    const footY = kneeY + Math.cos(hipAngle + kneeAngle) * lowerLeg;
+
+    // Hip joint
+    ctx.save();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Knee joint
+    ctx.save();
+    ctx.fillStyle = 'rgba(200, 200, 255, 0.3)';
+    ctx.beginPath();
+    ctx.arc(kneeX, kneeY, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Ankle joint
+    ctx.save();
+    ctx.fillStyle = 'rgba(255, 200, 200, 0.3)';
+    ctx.beginPath();
+    ctx.arc(footX, footY, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+// ============================================================
+// DRAW WALKER WITH REALISM
+// ============================================================
+function drawWalker(state) {
+    const parsed = parseWalkerState(state);
+    const baseY = canvas.height * 0.7;
+    const x = canvas.width * 0.4;
+    const y = baseY - 30;
+
+    const effort = drawMuscleTension(state);
+    drawShadow(x, y, parsed.hullAngle);
+
+    // Corpo
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(parsed.hullAngle);
+
+    ctx.fillStyle = "#00d4ff";
+    ctx.strokeStyle = "#0ea5e9";
+    ctx.lineWidth = 3;
+
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 18, 28, 0, 0, Math.PI * 2);
+    ctx.fill();
     ctx.stroke();
 
-    // Disegna ginocchio
-    ctx.fillStyle = '#7c3aed';
-    ctx.beginPath();
-    ctx.arc(knee.x, knee.y, 4, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.restore();
 
-    // Disegna piede
-    ctx.fillStyle = grounded ? '#00ff00' : '#ff6b6b';
-    ctx.beginPath();
-    ctx.arc(foot.x, foot.y, footRadius, 0, Math.PI * 2);
-    ctx.fill();
+    // Gambe con trail
+    drawLegWithTrail(x, y, parsed.leg0Hip, parsed.leg0Knee, "#9333ea", parsed.leg0FootContact, parsed.leg0HipSpeed, parsed.leg0KneeSpeed, true, baseY);
+    drawLegWithTrail(x, y, parsed.leg1Hip, parsed.leg1Knee, "#f97316", parsed.leg1FootContact, parsed.leg1HipSpeed, parsed.leg1KneeSpeed, false, baseY);
 
-    ctx.strokeStyle = grounded ? '#00cc00' : '#ff4444';
-    ctx.lineWidth = 2;
+    // Joints
+    drawJoints(x, y, parsed.leg0Hip, parsed.leg0Knee);
+    drawJoints(x, y, parsed.leg1Hip, parsed.leg1Knee);
+}
+
+// ============================================================
+// DRAW LEG WITH TRAIL AND PARTICLES
+// ============================================================
+function drawLegWithTrail(cx, cy, hipAngle, kneeAngle, color, contact, hipSpeed, kneeSpeed, isLeft, horizonY) {
+    const upperLeg = 35;
+    const lowerLeg = 35;
+
+    const kneeX = cx + Math.sin(hipAngle) * upperLeg;
+    const kneeY = cy + Math.cos(hipAngle) * upperLeg;
+
+    const footX = kneeX + Math.sin(hipAngle + kneeAngle) * lowerLeg;
+    const footY = kneeY + Math.cos(hipAngle + kneeAngle) * lowerLeg;
+
+    // Draw leg
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 4;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(kneeX, kneeY);
     ctx.stroke();
-}
 
-// ============================================================
-// DRAW FRAME
-// ============================================================
-function drawFrame() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (!trajectory || trajectory.length === 0) return;
-
-    const idx = Math.floor(frameIndex) % trajectory.length;
-    const step = trajectory[idx];
-
-    // Background environment
-    drawEnvironment();
-
-    // Draw walker
-    drawWalker(step.state, step.action);
-
-    // HUD info
-    drawHUD(idx, step);
-
-    // Update stats sidebar
-    updateStats(idx, step);
-}
-
-// ============================================================
-// DRAW COLORFUL CLOUDS (defined first)
-// ============================================================
-function drawClouds(offset) {
-    const cloudY1 = canvas.height * 0.12;
-    const cloudY2 = canvas.height * 0.28;
-    const cloudY3 = canvas.height * 0.20;
-
-    const scrollOffset = (offset * 1.5) % (canvas.width + 200);
-
-    // Cloud 1 (white)
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
-    drawCloud(scrollOffset - 100, cloudY1, 80, 30);
-
-    // Cloud 2 (light blue)
-    ctx.fillStyle = 'rgba(173, 216, 230, 0.16)';
-    drawCloud(scrollOffset + 300, cloudY2, 100, 35);
-
-    // Cloud 3 (pink)
-    ctx.fillStyle = 'rgba(255, 182, 193, 0.14)';
-    drawCloud(scrollOffset - 200, cloudY3, 70, 25);
-
-    // Cloud 4 (cyan)
-    ctx.fillStyle = 'rgba(224, 255, 255, 0.15)';
-    drawCloud(scrollOffset + 600, cloudY1 + 20, 90, 32);
-
-    // Wrap around clouds
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
-    drawCloud(scrollOffset - 100 - canvas.width - 200, cloudY1, 80, 30);
-    ctx.fillStyle = 'rgba(173, 216, 230, 0.16)';
-    drawCloud(scrollOffset + 300 - canvas.width - 200, cloudY2, 100, 35);
-}
-
-function drawCloud(x, y, width, height) {
     ctx.beginPath();
-    ctx.arc(x, y, height / 2, Math.PI * 0.5, Math.PI * 1.5);
-    ctx.arc(x + width * 0.33, y - height / 2, height * 0.6, Math.PI, Math.PI * 2);
-    ctx.arc(x + width * 0.66, y - height / 2, height * 0.5, Math.PI, Math.PI * 2);
-    ctx.arc(x + width, y, height / 2, Math.PI * 1.5, Math.PI * 0.5);
-    ctx.closePath();
-    ctx.fill();
-}
+    ctx.moveTo(kneeX, kneeY);
+    ctx.lineTo(footX, footY);
+    ctx.stroke();
 
-// ============================================================
-// DRAW SUN
-// ============================================================
-function drawSun(x, y) {
-    // Glow effect
-    const glowGradient = ctx.createRadialGradient(x, y, 0, x, y, 60);
-    glowGradient.addColorStop(0, 'rgba(255, 200, 0, 0.3)');
-    glowGradient.addColorStop(0.5, 'rgba(255, 150, 0, 0.1)');
-    glowGradient.addColorStop(1, 'rgba(255, 100, 0, 0)');
-    ctx.fillStyle = glowGradient;
+    // Foot contact indicator
+    const contactStrength = contact ? 1 : 0.3;
     ctx.beginPath();
-    ctx.arc(x, y, 60, 0, Math.PI * 2);
+    ctx.fillStyle = contact ? "#22c55e" : "#e11d48";
+    ctx.globalAlpha = contactStrength;
+    ctx.arc(footX, footY, 6, 0, Math.PI * 2);
     ctx.fill();
+    ctx.globalAlpha = 1;
 
-    // Sun body
-    const sunGradient = ctx.createRadialGradient(x, y, 0, x, y, 40);
-    sunGradient.addColorStop(0, '#ffeb3b');
-    sunGradient.addColorStop(1, '#ff9800');
-    ctx.fillStyle = sunGradient;
-    ctx.beginPath();
-    ctx.arc(x, y, 40, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Sun rays
-    ctx.strokeStyle = 'rgba(255, 200, 0, 0.6)';
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * Math.PI * 2;
-        const x1 = x + Math.cos(angle) * 50;
-        const y1 = y + Math.sin(angle) * 50;
-        const x2 = x + Math.cos(angle) * 70;
-        const y2 = y + Math.sin(angle) * 70;
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.stroke();
+    // Trail points
+    if (Math.random() < 0.3) {
+        addTrailPoint(footX, footY, isLeft);
     }
-}
 
-// ============================================================
-// DRAW MOUNTAINS
-// ============================================================
-function drawMountains(horizonY) {
-    // Mountain 1 (far back, purple)
-    ctx.fillStyle = 'rgba(147, 112, 219, 0.3)';
-    ctx.beginPath();
-    ctx.moveTo(-50, horizonY);
-    ctx.lineTo(200, horizonY - 150);
-    ctx.lineTo(450, horizonY);
-    ctx.closePath();
-    ctx.fill();
-
-    // Mountain 2 (middle, blue)
-    ctx.fillStyle = 'rgba(65, 105, 225, 0.4)';
-    ctx.beginPath();
-    ctx.moveTo(300, horizonY);
-    ctx.lineTo(550, horizonY - 180);
-    ctx.lineTo(800, horizonY);
-    ctx.closePath();
-    ctx.fill();
-
-    // Mountain 3 (right side, blue-green)
-    ctx.fillStyle = 'rgba(72, 209, 204, 0.35)';
-    ctx.beginPath();
-    ctx.moveTo(800, horizonY);
-    ctx.lineTo(1050, horizonY - 160);
-    ctx.lineTo(1300, horizonY);
-    ctx.closePath();
-    ctx.fill();
-
-    // Snow caps
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.beginPath();
-    ctx.moveTo(200, horizonY - 150);
-    ctx.lineTo(180, horizonY - 100);
-    ctx.lineTo(220, horizonY - 100);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.moveTo(550, horizonY - 180);
-    ctx.lineTo(520, horizonY - 120);
-    ctx.lineTo(580, horizonY - 120);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.moveTo(1050, horizonY - 160);
-    ctx.lineTo(1020, horizonY - 100);
-    ctx.lineTo(1080, horizonY - 100);
-    ctx.closePath();
-    ctx.fill();
-}
-
-// ============================================================
-// DRAW FLOWERS
-// ============================================================
-function drawFlowers(horizonY) {
-    const flowers = [
-        { x: 150, y: horizonY - 15, color: '#ff1493', stem: '#228b22' },
-        { x: 350, y: horizonY - 12, color: '#ff69b4', stem: '#2d5016' },
-        { x: 600, y: horizonY - 18, color: '#ffd700', stem: '#228b22' },
-        { x: 800, y: horizonY - 14, color: '#ff6347', stem: '#2d5016' },
-        { x: 1000, y: horizonY - 16, color: '#da70d6', stem: '#228b22' },
-        { x: 1100, y: horizonY - 13, color: '#00ced1', stem: '#2d5016' },
-    ];
-
-    flowers.forEach(flower => {
-        // Stem
-        ctx.strokeStyle = flower.stem;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(flower.x, horizonY);
-        ctx.lineTo(flower.x, flower.y);
-        ctx.stroke();
-
-        // Petals
-        ctx.fillStyle = flower.color;
-        for (let i = 0; i < 5; i++) {
-            const angle = (i / 5) * Math.PI * 2;
-            const px = flower.x + Math.cos(angle) * 6;
-            const py = flower.y + Math.sin(angle) * 6;
-            ctx.beginPath();
-            ctx.arc(px, py, 3, 0, Math.PI * 2);
-            ctx.fill();
+    // Particles al contatto
+    if (contact) {
+        const speed = Math.abs(hipSpeed) + Math.abs(kneeSpeed);
+        if (speed > 0.5) {
+            const dustColor = 'rgba(139, 111, 78, 0.6)';
+            emitParticles(footX, footY, Math.floor(speed * 2), 0, -1, dustColor, 'dust');
+            footPressure[isLeft ? 'leg0' : 'leg1'] = Math.min(1, speed / 5);
         }
-
-        // Center
-        ctx.fillStyle = '#ffdd00';
-        ctx.beginPath();
-        ctx.arc(flower.x, flower.y, 2, 0, Math.PI * 2);
-        ctx.fill();
-    });
-}
-
-// ============================================================
-// DRAW GRASS DETAILS (COLORFUL)
-// ============================================================
-function drawGrassDetails(horizonY) {
-    const spacing = 12;
-    const grassColors = [
-        'rgba(46, 204, 113, 0.3)',   // Bright green
-        'rgba(52, 211, 153, 0.3)',   // Emerald
-        'rgba(76, 175, 80, 0.3)',    // Medium green
-        'rgba(39, 174, 96, 0.3)',    // Forest green
-    ];
-
-    for (let x = 0; x < canvas.width; x += spacing) {
-        const colorIdx = Math.floor((x / spacing) % grassColors.length);
-        ctx.strokeStyle = grassColors[colorIdx];
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-
-        const height = 12 + Math.sin(x * 0.05 + frameIndex * 0.1) * 4;
-        const wobble = Math.sin(x * 0.08 + frameIndex * 0.05) * 2;
-
-        // Main blade
-        ctx.beginPath();
-        ctx.moveTo(x + wobble, horizonY);
-        ctx.lineTo(x + wobble + 2, horizonY - height);
-        ctx.stroke();
-
-        // Side blade
-        ctx.beginPath();
-        ctx.moveTo(x + 5 + wobble, horizonY);
-        ctx.lineTo(x + 3 + wobble, horizonY - height * 0.75);
-        ctx.stroke();
+    } else {
+        footPressure[isLeft ? 'leg0' : 'leg1'] *= 0.9;
     }
 }
 
 // ============================================================
-// DRAW ENVIRONMENT (Sky + Ground)
+// DRAW FOOT PRESSURE INDICATOR
 // ============================================================
-function drawEnvironment() {
+function drawFootPressureIndicator() {
+    const baseY = canvas.height * 0.7;
+    const x = canvas.width * 0.4;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.font = 'bold 11px monospace';
+
+    const p0 = (footPressure.leg0 * 100).toFixed(0);
+    const p1 = (footPressure.leg1 * 100).toFixed(0);
+
+    ctx.fillText(`L:${p0}%`, x - 35, baseY + 50);
+    ctx.fillText(`R:${p1}%`, x + 15, baseY + 50);
+
+    ctx.restore();
+}
+
+// ============================================================
+// COMPUTE GOAL X POSITION
+// ============================================================
+function computeGoalX(worldOffset) {
+    if (!goalFrame || !goalFrame.state || goalFrame.state.length < 1) return null;
+
+    const walkerGoalX = goalFrame.state[0];
+    const walkerScreenX = canvas.width * 0.4;
+    const dx = walkerGoalX * 5 - worldOffset;
+
+    return walkerScreenX + dx;
+}
+
+// ============================================================
+// DRAW GOAL WITH ENHANCED EFFECTS
+// ============================================================
+function drawGoal(px) {
+    if (px === null) return;
+
+    ctx.save();
+
+    // Glow effect
+    const glowGradient = ctx.createRadialGradient(px, canvas.height * 0.65, 0, px, canvas.height * 0.65, 100);
+    glowGradient.addColorStop(0, 'rgba(255, 215, 0, 0.2)');
+    glowGradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+    ctx.fillStyle = glowGradient;
+    ctx.fillRect(px - 100, 0, 200, canvas.height);
+
+    // Linea verticale oro
+    ctx.strokeStyle = "#FFD700";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(px, 0);
+    ctx.lineTo(px, canvas.height);
+    ctx.stroke();
+
+    // Bandierina animata
+    ctx.fillStyle = "#FFD700";
+    const waveOffset = Math.sin(frameIndex * 0.05) * 3;
+    ctx.beginPath();
+    ctx.moveTo(px, 0);
+    ctx.lineTo(px + 20 + waveOffset, 14);
+    ctx.lineTo(px + waveOffset, 28);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+}
+
+// ============================================================
+// DRAW ENVIRONMENT (con wind effect)
+// ============================================================
+function drawEnvironment(worldOffset) {
     const horizon = canvas.height * 0.65;
 
-    // SKY GRADIENT (vibrant sunset/sunrise vibes)
     const skyGradient = ctx.createLinearGradient(0, 0, 0, horizon);
-    skyGradient.addColorStop(0, '#0f1f3c');           // Deep purple-blue top
-    skyGradient.addColorStop(0.3, '#2d5a9f');        // Bright blue
-    skyGradient.addColorStop(0.6, '#5a8fc7');        // Sky blue
-    skyGradient.addColorStop(1, '#87ceeb');          // Light cyan
+    skyGradient.addColorStop(0, '#0f1f3c');
+    skyGradient.addColorStop(0.3, '#2d5a9f');
+    skyGradient.addColorStop(0.6, '#5a8fc7');
+    skyGradient.addColorStop(1, '#87ceeb');
     ctx.fillStyle = skyGradient;
     ctx.fillRect(0, 0, canvas.width, horizon);
 
-    // SUN
     drawSun(canvas.width * 0.85, canvas.height * 0.2);
-
-    // MOUNTAINS in background
     drawMountains(horizon);
+    drawClouds(worldOffset);
 
-    // CLOUDS (colorful)
-    drawClouds(frameIndex);
-
-    // GROUND GRADIENT (vibrant grass)
     const groundGradient = ctx.createLinearGradient(0, horizon, 0, canvas.height);
-    groundGradient.addColorStop(0, '#2ecc71');       // Bright green
-    groundGradient.addColorStop(0.5, '#27ae60');     // Medium green
-    groundGradient.addColorStop(1, '#1e8449');       // Dark forest green
+    groundGradient.addColorStop(0, '#2ecc71');
+    groundGradient.addColorStop(0.5, '#27ae60');
+    groundGradient.addColorStop(1, '#1e8449');
     ctx.fillStyle = groundGradient;
     ctx.fillRect(0, horizon, canvas.width, canvas.height - horizon);
 
-    // FLOWERS and details
-    drawFlowers(horizon);
+    drawFlowers(horizon, worldOffset);
+    drawGrassDetails(horizon, worldOffset);
 
-    // GRASS DETAILS (blades)
-    drawGrassDetails(horizon);
-
-    // GROUND LINE
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -491,7 +538,6 @@ function drawEnvironment() {
 // DRAW SUN
 // ============================================================
 function drawSun(x, y) {
-    // Glow effect
     const glowGradient = ctx.createRadialGradient(x, y, 0, x, y, 60);
     glowGradient.addColorStop(0, 'rgba(255, 200, 0, 0.3)');
     glowGradient.addColorStop(0.5, 'rgba(255, 150, 0, 0.1)');
@@ -501,7 +547,6 @@ function drawSun(x, y) {
     ctx.arc(x, y, 60, 0, Math.PI * 2);
     ctx.fill();
 
-    // Sun body
     const sunGradient = ctx.createRadialGradient(x, y, 0, x, y, 40);
     sunGradient.addColorStop(0, '#ffeb3b');
     sunGradient.addColorStop(1, '#ff9800');
@@ -510,7 +555,6 @@ function drawSun(x, y) {
     ctx.arc(x, y, 40, 0, Math.PI * 2);
     ctx.fill();
 
-    // Sun rays
     ctx.strokeStyle = 'rgba(255, 200, 0, 0.6)';
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
@@ -531,7 +575,6 @@ function drawSun(x, y) {
 // DRAW MOUNTAINS
 // ============================================================
 function drawMountains(horizonY) {
-    // Mountain 1 (far back, purple)
     ctx.fillStyle = 'rgba(147, 112, 219, 0.3)';
     ctx.beginPath();
     ctx.moveTo(-50, horizonY);
@@ -540,7 +583,6 @@ function drawMountains(horizonY) {
     ctx.closePath();
     ctx.fill();
 
-    // Mountain 2 (middle, blue)
     ctx.fillStyle = 'rgba(65, 105, 225, 0.4)';
     ctx.beginPath();
     ctx.moveTo(300, horizonY);
@@ -549,7 +591,6 @@ function drawMountains(horizonY) {
     ctx.closePath();
     ctx.fill();
 
-    // Mountain 3 (right side, blue-green)
     ctx.fillStyle = 'rgba(72, 209, 204, 0.35)';
     ctx.beginPath();
     ctx.moveTo(800, horizonY);
@@ -558,7 +599,6 @@ function drawMountains(horizonY) {
     ctx.closePath();
     ctx.fill();
 
-    // Snow caps
     ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
     ctx.beginPath();
     ctx.moveTo(200, horizonY - 150);
@@ -583,38 +623,113 @@ function drawMountains(horizonY) {
 }
 
 // ============================================================
-// DRAW COLORFUL CLOUDS
+// DRAW FLOWERS (con wind sway)
+// ============================================================
+function drawFlowers(horizonY, worldOffset) {
+    const baseFlowers = [
+        { x: 150, color: '#ff1493', stem: '#228b22' },
+        { x: 350, color: '#ff69b4', stem: '#2d5016' },
+        { x: 600, color: '#ffd700', stem: '#228b22' },
+        { x: 800, color: '#ff6347', stem: '#2d5016' },
+        { x: 1000, color: '#da70d6', stem: '#228b22' },
+        { x: 1100, color: '#00ced1', stem: '#2d5016' },
+    ];
+
+    const scroll = worldOffset * 0.8;
+    const width = canvas.width + 300;
+
+    baseFlowers.forEach(f => {
+        const fx = ((f.x - scroll) % width) - 100;
+        const fy = horizonY - 15;
+
+        // Wind sway
+        const sway = Math.sin(frameIndex * 0.03 + f.x * 0.01) * 3;
+
+        ctx.strokeStyle = f.stem;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(fx, horizonY);
+        ctx.quadraticCurveTo(fx + sway * 0.3, horizonY - 5, fx + sway, fy);
+        ctx.stroke();
+
+        ctx.fillStyle = f.color;
+        for (let i = 0; i < 5; i++) {
+            const angle = (i / 5) * Math.PI * 2;
+            const px = fx + sway + Math.cos(angle) * 6;
+            const py = fy + Math.sin(angle) * 6;
+            ctx.beginPath();
+            ctx.arc(px, py, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.fillStyle = '#ffdd00';
+        ctx.beginPath();
+        ctx.arc(fx + sway, fy, 2, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
+
+// ============================================================
+// DRAW GRASS DETAILS (con wind)
+// ============================================================
+function drawGrassDetails(horizonY, worldOffset) {
+    const spacing = 12;
+    const grassColors = [
+        'rgba(46, 204, 113, 0.3)',
+        'rgba(52, 211, 153, 0.3)',
+        'rgba(76, 175, 80, 0.3)',
+        'rgba(39, 174, 96, 0.3)',
+    ];
+
+    const scroll = worldOffset;
+    const windForce = Math.sin(frameIndex * 0.02) * 2;
+
+    for (let i = -spacing; i < canvas.width + spacing; i += spacing) {
+        const x = i - (scroll % spacing);
+        const colorIdx = Math.floor((i / spacing) % grassColors.length);
+        ctx.strokeStyle = grassColors[colorIdx];
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+
+        const height = 12 + Math.sin((i + scroll) * 0.05 + frameIndex * 0.1) * 4;
+        const wobble = Math.sin((i + scroll) * 0.08 + frameIndex * 0.05) * 2 + windForce;
+
+        ctx.beginPath();
+        ctx.moveTo(x + wobble, horizonY);
+        ctx.lineTo(x + wobble + 2, horizonY - height);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(x + 5 + wobble, horizonY);
+        ctx.lineTo(x + 3 + wobble, horizonY - height * 0.75);
+        ctx.stroke();
+    }
+}
+
+// ============================================================
+// DRAW CLOUDS
 // ============================================================
 function drawClouds(offset) {
     const cloudY1 = canvas.height * 0.12;
     const cloudY2 = canvas.height * 0.28;
     const cloudY3 = canvas.height * 0.20;
 
-    const scrollOffset = (offset * 1.5) % (canvas.width + 200);
+    const base = (offset * 0.2);
 
-    // Cloud 1 (white)
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
-    drawCloud(scrollOffset - 100, cloudY1, 80, 30);
+    function placeCloud(x, y, w, h, color) {
+        ctx.fillStyle = color;
+        drawCloud(((x - base) % (canvas.width + 200)) - 100, y, w, h);
+    }
 
-    // Cloud 2 (light blue)
-    ctx.fillStyle = 'rgba(173, 216, 230, 0.16)';
-    drawCloud(scrollOffset + 300, cloudY2, 100, 35);
-
-    // Cloud 3 (pink)
-    ctx.fillStyle = 'rgba(255, 182, 193, 0.14)';
-    drawCloud(scrollOffset - 200, cloudY3, 70, 25);
-
-    // Cloud 4 (cyan)
-    ctx.fillStyle = 'rgba(224, 255, 255, 0.15)';
-    drawCloud(scrollOffset + 600, cloudY1 + 20, 90, 32);
-
-    // Wrap around clouds
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
-    drawCloud(scrollOffset - 100 - canvas.width - 200, cloudY1, 80, 30);
-    ctx.fillStyle = 'rgba(173, 216, 230, 0.16)';
-    drawCloud(scrollOffset + 300 - canvas.width - 200, cloudY2, 100, 35);
+    placeCloud(0,   cloudY1, 80, 30, 'rgba(255, 255, 255, 0.18)');
+    placeCloud(300, cloudY2, 100, 35, 'rgba(173, 216, 230, 0.16)');
+    placeCloud(-200, cloudY3, 70, 25, 'rgba(255, 182, 193, 0.14)');
+    placeCloud(600, cloudY1 + 20, 90, 32, 'rgba(224, 255, 255, 0.15)');
 }
 
+// ============================================================
+// CLOUD SHAPE
+// ============================================================
 function drawCloud(x, y, width, height) {
     ctx.beginPath();
     ctx.arc(x, y, height / 2, Math.PI * 0.5, Math.PI * 1.5);
@@ -626,93 +741,131 @@ function drawCloud(x, y, width, height) {
 }
 
 // ============================================================
-// DRAW FLOWERS
+// DRAW FRAME
 // ============================================================
-function drawFlowers(horizonY) {
-    const flowers = [
-        { x: 150, y: horizonY - 15, color: '#ff1493', stem: '#228b22' },
-        { x: 350, y: horizonY - 12, color: '#ff69b4', stem: '#2d5016' },
-        { x: 600, y: horizonY - 18, color: '#ffd700', stem: '#228b22' },
-        { x: 800, y: horizonY - 14, color: '#ff6347', stem: '#2d5016' },
-        { x: 1000, y: horizonY - 16, color: '#da70d6', stem: '#228b22' },
-        { x: 1100, y: horizonY - 13, color: '#00ced1', stem: '#2d5016' },
-    ];
+function drawFrame() {
+    if (!trajectory || trajectory.length === 0) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+    }
 
-    flowers.forEach(flower => {
-        // Stem
-        ctx.strokeStyle = flower.stem;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(flower.x, horizonY);
-        ctx.lineTo(flower.x, flower.y);
-        ctx.stroke();
+    const idx = Math.floor(frameIndex) % trajectory.length;
+    const step = trajectory[idx];
+    const parsed = parseWalkerState(step.state);
 
-        // Petals
-        ctx.fillStyle = flower.color;
-        for (let i = 0; i < 5; i++) {
-            const angle = (i / 5) * Math.PI * 2;
-            const px = flower.x + Math.cos(angle) * 6;
-            const py = flower.y + Math.sin(angle) * 6;
-            ctx.beginPath();
-            ctx.arc(px, py, 3, 0, Math.PI * 2);
-            ctx.fill();
-        }
+    const smoothVelX = (lastVelX * 0.8) + (parsed.hullVelX * 0.2);
+    lastVelX = smoothVelX;
 
-        // Center
-        ctx.fillStyle = '#ffdd00';
-        ctx.beginPath();
-        ctx.arc(flower.x, flower.y, 2, 0, Math.PI * 2);
-        ctx.fill();
-    });
+    worldX += smoothVelX * 5;
+
+    updateParticles();
+    updateTrail();
+
+    drawEnvironment(worldX);
+    drawTrail();
+    drawParticles();
+
+    goalX = computeGoalX(worldX);
+    drawGoal(goalX);
+
+    drawWalker(step.state);
+    drawFootPressureIndicator();
+
+    drawHUD(idx, step);
+    updateStats(idx, step);
 }
 
 // ============================================================
-// DRAW HUD (On-Screen Text)
+// DRAW HUD
 // ============================================================
 function drawHUD(idx, step) {
+    const reward = typeof step.reward === 'number' ? step.reward : 0;
+
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 14px monospace';
     ctx.fillText(`Step: ${idx}/${trajectory.length - 1}`, 20, 30);
-    ctx.fillText(`Reward: ${step.reward.toFixed(4)}`, 20, 50);
-    ctx.fillText(`Actions: [${step.action.map(a => a.toFixed(2)).join(', ')}]`, 20, 70);
+    ctx.fillText(`Reward: ${reward.toFixed(4)}`, 20, 50);
+
+    if (Array.isArray(step.action)) {
+        ctx.fillText(
+            `Actions: [${step.action.map(a =>
+                (typeof a === 'number' ? a : 0).toFixed(2)
+            ).join(', ')}]`,
+            20,
+            70
+        );
+    }
 }
 
 // ============================================================
 // UPDATE SIDEBAR STATS
 // ============================================================
 function updateStats(idx, step) {
-    cumulativeReward += step.reward;
+    const reward = typeof step.reward === 'number' ? step.reward : 0;
+    cumulativeReward += reward;
 
     const parsed = parseWalkerState(step.state);
 
-    document.getElementById('statStep').textContent = `${idx} / ${trajectory.length - 1}`;
-    document.getElementById('statReward').textContent = step.reward.toFixed(4);
-    document.getElementById('statCumulative').textContent = cumulativeReward.toFixed(2);
-    document.getElementById('statVelX').textContent = parsed.velX.toFixed(3);
+    document.getElementById('statStep').textContent =
+        `${idx} / ${trajectory.length - 1}`;
+    document.getElementById('statReward').textContent = reward.toFixed(4);
+    document.getElementById('statCumulative').textContent =
+        cumulativeReward.toFixed(2);
+    document.getElementById('statVelX').textContent = parsed.hullVelX.toFixed(3);
+    document.getElementById('statVelY').textContent = parsed.hullVelY.toFixed(3);
+    document.getElementById('statContact').textContent =
+        `${parsed.leg0FootContact ? 'L' : '_'}${parsed.leg1FootContact ? 'R' : '_'}`;
 
-    // Progress bar
     const progress = (idx / (trajectory.length - 1)) * 100;
     document.getElementById('progressBar').style.width = progress + '%';
+
+    const effort0 = Math.min(1, (Math.abs(parsed.leg0HipSpeed) + Math.abs(parsed.leg0KneeSpeed)) / 10);
+    const effort1 = Math.min(1, (Math.abs(parsed.leg1HipSpeed) + Math.abs(parsed.leg1KneeSpeed)) / 10);
+
+    ['action0', 'action1', 'action2', 'action3'].forEach((id, i) => {
+        const val = Array.isArray(step.action) ? step.action[i] || 0 : 0;
+        const elem = document.getElementById(id);
+        if (elem) {
+            elem.style.width = (((val + 1) / 2) * 100) + '%';
+        }
+        document.getElementById(`actionVal${i}`).textContent = val.toFixed(2);
+    });
 }
 
 // ============================================================
-// UPDATE GRAPHS (Simple line charts)
+// UPDATE GRAPHS
 // ============================================================
 function updateGraphs() {
     if (!trajectory || trajectory.length === 0) return;
 
-    // Reward chart
-    drawLineChart('rewardChart', trajectory.map(s => s.reward), 'Reward', '#00d4ff');
+    drawLineChart(
+        'rewardChart',
+        trajectory.map(s => (typeof s.reward === 'number' ? s.reward : 0)),
+        'Reward',
+        '#00d4ff'
+    );
 
-    // Velocity chart
-    const velocities = trajectory.map(s => parseWalkerState(s.state).velX);
+    const velocities = trajectory.map(s => {
+        const p = parseWalkerState(s.state);
+        return typeof p.hullVelX === 'number' ? p.hullVelX : 0;
+    });
     drawLineChart('velocityChart', velocities, 'Velocity X', '#7c3aed');
 
-    // Actions chart (media delle 4 azioni)
-    const actionMeans = trajectory.map(s =>
-        s.action.reduce((a, b) => a + b, 0) / s.action.length
-    );
+    const actionMeans = trajectory.map(s => {
+        if (!Array.isArray(s.action) || s.action.length === 0) return 0;
+        const sum = s.action.reduce(
+            (a, b) => a + (typeof b === 'number' ? b : 0),
+            0
+        );
+        return sum / s.action.length;
+    });
     drawLineChart('actionsChart', actionMeans, 'Avg Action', '#ff6b6b');
+
+    const positions = trajectory.map(s => {
+        if (!Array.isArray(s.state) || s.state.length < 1) return 0;
+        return s.state[0] || 0;
+    });
+    drawLineChart('positionChart', positions, 'Position X', '#10b981');
 }
 
 // ============================================================
@@ -720,7 +873,7 @@ function updateGraphs() {
 // ============================================================
 function drawLineChart(svgId, data, label, color) {
     const svg = document.getElementById(svgId);
-    if (!svg) return;
+    if (!svg || !data.length) return;
 
     svg.innerHTML = '';
 
@@ -730,19 +883,16 @@ function drawLineChart(svgId, data, label, color) {
     const graphW = w - padding * 2;
     const graphH = h - padding * 2;
 
-    // Normalize data
     const minVal = Math.min(...data);
     const maxVal = Math.max(...data);
     const range = maxVal - minVal || 1;
 
-    // Draw background
     const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     bg.setAttribute('width', w);
     bg.setAttribute('height', h);
     bg.setAttribute('fill', 'rgba(0, 0, 0, 0.2)');
     svg.appendChild(bg);
 
-    // Draw axes
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     line.setAttribute('x1', padding);
     line.setAttribute('y1', h - padding);
@@ -752,8 +902,8 @@ function drawLineChart(svgId, data, label, color) {
     line.setAttribute('stroke-width', '1');
     svg.appendChild(line);
 
-    // Draw points and line
-    let pathData = `M ${padding} ${h - padding - ((data[0] - minVal) / range) * graphH}`;
+    let pathData =
+        `M ${padding} ${h - padding - ((data[0] - minVal) / range) * graphH}`;
 
     for (let i = 1; i < data.length; i++) {
         const x = padding + (i / (data.length - 1)) * graphW;
@@ -804,7 +954,8 @@ document.getElementById('speedRange').addEventListener('input', (e) => {
 
 document.getElementById('playPauseBtn').addEventListener('click', () => {
     playing = !playing;
-    document.getElementById('playPauseBtn').textContent = playing ? '⏸ Pause' : '▶ Play';
+    document.getElementById('playPauseBtn').textContent =
+        playing ? '⏸ Pause' : '▶ Play';
     if (playing) animate();
 });
 
@@ -812,6 +963,11 @@ document.getElementById('reloadBtn').addEventListener('click', () => {
     frameIndex = 0;
     cumulativeReward = 0;
     playing = false;
+    walkerX = 0;
+    worldX = 0;
+    lastVelX = 0;
+    particles = [];
+    legTrail = [];
     document.getElementById('playPauseBtn').textContent = '▶ Play';
     drawFrame();
     updateGraphs();
